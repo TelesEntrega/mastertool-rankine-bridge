@@ -493,11 +493,14 @@ def _find_export_dir(output_dir: Path) -> tuple[Path | None, list[str]]:
 
 def _summarize_index_counts(index: dict) -> dict:
     """Extrai do dict devolvido por `build_static_index()` os contadores
-    comparáveis com a baseline `v0.1.0` (`RELATORIO-VALIDACAO-OPERACIONAL-
-    2026-07-24.md`, seção 4): `symbols.json`=60, `type-index.json`
-    (`type_symbols`)=8, `resolved-references.json`=409 resolved/64
-    partially_resolved/61 unresolved, `resolved-calls.json`=3 resolved/9
-    unresolved, `read-write-index.json`=522 entradas totais.
+    comparáveis com a baseline de validação interna: `symbols.json`,
+    `type-index.json` (`type_symbols`), `resolved-references.json`
+    (resolved/partially_resolved/unresolved), `resolved-calls.json`
+    (resolved/unresolved) e `read-write-index.json` (entradas totais).
+
+    Os valores de referência são específicos do projeto capturado e não são
+    fixados aqui: comparar contra números de outra planta reprovaria uma
+    execução correta.
 
     Nomes de chave usados abaixo são os REAIS devolvidos por
     `build_static_index()` (`symbols`, `type_symbols`, `resolved_calls`,
