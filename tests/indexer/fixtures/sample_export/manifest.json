@@ -1,0 +1,14 @@
+{
+  "exporter_config": {
+    "max_children_per_node": 128,
+    "max_depth": 8,
+    "max_document_characters": 1000000,
+    "max_text_objects": 300,
+    "max_total_characters": 15000000,
+    "max_total_nodes": 1000
+  },
+  "generated_at": "2026-01-01T00:00:00.000000",
+  "mode": "read_only",
+  "schema_version": "1.0",
+  "script": "synthetic_fixture_builder"
+}

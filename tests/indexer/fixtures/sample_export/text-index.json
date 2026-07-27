@@ -1,0 +1,127 @@
+{
+  "objects_with_both": [
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": "implementation.st",
+      "name": "FunCalcularMedia",
+      "node_id": "application/fun/0",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000003",
+      "type_guid": "33333333-3333-3333-3333-333333333333"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": "implementation.st",
+      "name": "PrgResolucaoSintetica",
+      "node_id": "application/prg/1",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000009",
+      "type_guid": "11111111-1111-1111-1111-111111111111"
+    }
+  ],
+  "objects_with_declaration": [
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "MainPrg",
+      "node_id": "application/prg/0",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "type_guid": "11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "FB_ValvulaSintetica",
+      "node_id": "application/fb/0",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000002",
+      "type_guid": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": "implementation.st",
+      "name": "FunCalcularMedia",
+      "node_id": "application/fun/0",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000003",
+      "type_guid": "33333333-3333-3333-3333-333333333333"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "FB_Malformado",
+      "node_id": "application/fb/1",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000004",
+      "type_guid": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "GvlMotoresSintetica",
+      "node_id": "application/gvl/0",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000005",
+      "type_guid": "44444444-4444-4444-4444-444444444444"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "GvlDiagnosticoSintetico",
+      "node_id": "application/gvl/1",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000006",
+      "type_guid": "44444444-4444-4444-4444-444444444444"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "FB_TimerSintetico",
+      "node_id": "application/fb/2",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000007",
+      "type_guid": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": null,
+      "name": "GvlAmbiguaSintetica",
+      "node_id": "application/gvl/2",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000008",
+      "type_guid": "44444444-4444-4444-4444-444444444444"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": "implementation.st",
+      "name": "PrgResolucaoSintetica",
+      "node_id": "application/prg/1",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000009",
+      "type_guid": "11111111-1111-1111-1111-111111111111"
+    }
+  ],
+  "objects_with_implementation": [
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": "implementation.st",
+      "name": "FunCalcularMedia",
+      "node_id": "application/fun/0",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000003",
+      "type_guid": "33333333-3333-3333-3333-333333333333"
+    },
+    {
+      "declaration_file": "declaration.st",
+      "implementation_file": "implementation.st",
+      "name": "PrgResolucaoSintetica",
+      "node_id": "application/prg/1",
+      "object_guid": "aaaaaaaa-0000-0000-0000-000000000009",
+      "type_guid": "11111111-1111-1111-1111-111111111111"
+    }
+  ],
+  "objects_with_text_errors": [],
+  "objects_without_text": [
+    {
+      "declaration_file": null,
+      "implementation_file": null,
+      "name": null,
+      "node_id": "application",
+      "object_guid": null,
+      "type_guid": null
+    }
+  ],
+  "total_characters": 1977,
+  "total_declaration_characters": 1419,
+  "total_implementation_characters": 558,
+  "total_text_objects": 9
+}

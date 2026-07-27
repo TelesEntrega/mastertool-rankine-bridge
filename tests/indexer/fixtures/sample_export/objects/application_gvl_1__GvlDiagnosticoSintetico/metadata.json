@@ -1,0 +1,41 @@
+{
+  "declaration": {
+    "available": true,
+    "byte_length": 82,
+    "character_length": 82,
+    "file": "declaration.st",
+    "sha256": "2de36cbc0dfb97e8fab0e10f08697c317e4359b20e77d94b21c12baddb8d3239",
+    "state": "saved"
+  },
+  "depth": 1,
+  "errors": [],
+  "identity": {
+    "is_folder": false,
+    "name": "GvlDiagnosticoSintetico",
+    "object_guid": "aaaaaaaa-0000-0000-0000-000000000006",
+    "type_guid": "44444444-4444-4444-4444-444444444444"
+  },
+  "implementation": {
+    "available": false,
+    "byte_length": null,
+    "character_length": null,
+    "file": null,
+    "sha256": null,
+    "state": "indicator_confirmed_false"
+  },
+  "index": 5,
+  "node_id": "application/gvl/1",
+  "parent_node_id": "application",
+  "runtime": {
+    "dotnet_type": {
+      "available": true,
+      "full_name": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject"
+    },
+    "python_type": {
+      "module": "__builtin__",
+      "name": "ExtendedObject[IScriptObject]"
+    },
+    "stringification_performed": false
+  },
+  "schema_version": "1.0"
+}

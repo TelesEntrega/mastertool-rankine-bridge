@@ -1,0 +1,36 @@
+{
+  "declaration": {
+    "available": true,
+    "byte_length": 72,
+    "character_length": 72,
+    "file": "declaration.st",
+    "sha256": "79e14c574bfc5657c73efa42d4dff02cb2fccc7ad5783b86dfc3a5cdd5b91c1d",
+    "state": "saved"
+  },
+  "depth": 1,
+  "errors": [],
+  "identity": {
+    "is_folder": false,
+    "name": "GvlAmbiguaSintetica",
+    "object_guid": "aaaaaaaa-0000-0000-0000-000000000008",
+    "type_guid": "44444444-4444-4444-4444-444444444444"
+  },
+  "implementation": {
+    "available": false
+  },
+  "index": 6,
+  "node_id": "application/gvl/2",
+  "parent_node_id": "application",
+  "runtime": {
+    "dotnet_type": {
+      "available": true,
+      "full_name": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject"
+    },
+    "python_type": {
+      "module": "__builtin__",
+      "name": "ExtendedObject[IScriptObject]"
+    },
+    "stringification_performed": false
+  },
+  "schema_version": "1.0"
+}

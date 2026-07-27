@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/project-manifest.schema.json",
+  "title": "Manifesto de export do mastertool-ai-bridge",
+  "type": "object",
+  "required": ["schema_version", "tool_version", "mode", "project", "statistics", "safety"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "tool_version": { "type": "string" },
+    "mode": { "const": "read_only" },
+    "exported_at": { "type": ["string", "null"] },
+    "duration_seconds": { "type": ["number", "null"] },
+    "hostname": { "type": ["string", "null"] },
+    "user": { "type": ["string", "null"] },
+    "script_version": { "type": ["string", "null"] },
+    "exporter_git_commit": { "type": ["string", "null"] },
+    "config_used": { "type": ["object", "null"] },
+    "project": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "hash": { "type": ["string", "null"] }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "mastertool_version": { "type": ["string", "null"] },
+        "scriptengine_version": { "type": ["string", "null"] },
+        "python_version": { "type": ["string", "null"] }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "required": ["total_objects", "exported_objects", "failed_objects"],
+      "properties": {
+        "total_objects": { "type": "integer", "minimum": 0 },
+        "exported_objects": { "type": "integer", "minimum": 0 },
+        "failed_objects": { "type": "integer", "minimum": 0 },
+        "objects_by_type": { "type": "object", "additionalProperties": { "type": "integer" } }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["project_modified", "compile_requested", "download_requested", "online_operation_requested"],
+      "properties": {
+        "project_modified": { "const": false },
+        "compile_requested": { "type": "boolean" },
+        "download_requested": { "const": false },
+        "online_operation_requested": { "const": false }
+      }
+    }
+  }
+}

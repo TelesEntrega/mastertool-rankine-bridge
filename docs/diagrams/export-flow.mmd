@@ -1,0 +1,17 @@
+flowchart TD
+    A[Projeto aberto no MasterTool] --> B[04_export_project.py*]
+    B --> C{Para cada objeto da árvore}
+    C -->|textual| D[declaration.st + implementation.st + metadata.json]
+    C -->|gráfico| E{PLCopen XML disponível?}
+    E -->|sim| F[plcopen/]
+    E -->|não| G{Export nativo disponível?}
+    G -->|sim| H[raw/]
+    G -->|não| I[metadata.json + aviso]
+    C -->|erro no objeto| J[export-errors.json e CONTINUA]
+    D & F & H & I & J --> K[export-manifest.json + checksums.sha256]
+    K --> L[workspace/exports/timestamp_projeto/ imutável]
+    L --> M[mastertool-bridge validate-export]
+    M -->|OK| N[index / analyze / document / compare]
+    M -->|falha| O[Relatório de erros - export rejeitado]
+
+    %% * pendente: implementação na segunda entrega, após Fase 0 validada

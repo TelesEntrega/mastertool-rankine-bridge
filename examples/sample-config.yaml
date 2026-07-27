@@ -1,0 +1,18 @@
+# Exemplo de configuração de projeto (copie para config/default.yaml e ajuste).
+project:
+  name: ProjetoExemploNX3008
+  expected_controller: NX3008
+
+features:
+  discovery: true
+  export: true
+  analysis: true
+  documentation: true
+  compile: false          # só habilitar após Fase 0/1 validadas (decisão humana)
+  import: false           # bloqueado até fases 0-3 aprovadas
+  online_operations: false
+  download_to_plc: false
+
+safety:
+  read_only: true
+  require_human_approval: true

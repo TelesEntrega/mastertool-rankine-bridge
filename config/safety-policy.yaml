@@ -1,0 +1,58 @@
+# Política de segurança formal do mastertool-ai-bridge.
+# Este arquivo é normativo: código e agentes DEVEM recusar operações que o violem.
+# Alterações nesta política exigem aprovação humana registrada em Git.
+
+policy_version: "1.0"
+mode: read_only
+
+# Operações permanentemente proibidas nesta fase (sem exceção, sem flag):
+forbidden_operations:
+  - modify_original_project
+  - download_to_plc
+  - go_online
+  - login_to_controller
+  - start_controller
+  - stop_controller
+  - reset_controller
+  - force_variables
+  - write_physical_outputs
+  - change_hardware_configuration
+  - install_libraries_without_authorization
+  - import_without_backup
+  - apply_ai_changes_to_official_project
+
+# Pré-requisitos obrigatórios para QUALQUER operação de escrita futura (Fase 4):
+write_operation_gates:
+  - working_copy          # 1. cópia de trabalho, nunca o original
+  - backup                # 2. backup com hash antes da operação
+  - textual_diff          # 3. diff textual revisável
+  - structural_validation # 4. validação estrutural (schemas)
+  - successful_compile    # 5. compilação sem erros
+  - human_approval        # 6. aprovação humana explícita e registrada
+
+# Níveis de risco e tratamento (detalhes em docs/08-safety.md):
+risk_levels:
+  low:
+    examples: [comments, documentation, formatting, reports]
+    auto_apply_allowed: false   # nesta fase, nada é aplicado automaticamente
+  medium:
+    examples: [internal_function_logic, calculations, refactoring_no_physical_output, gvl_without_physical_mapping]
+    auto_apply_allowed: false
+    requires: [compile, human_approval]
+  high:
+    examples: [state_machines, permissives, alarms, process_timers, sequencing, mes_communication, opcua, interlocks, retain_persistent]
+    auto_apply_allowed: false
+    requires: [compile, simulation_review, human_approval]
+  critical:
+    examples: [physical_outputs, percent_q_addresses, machine_safety, emergency_stop, robot_motion, valves, motors, drives, hardware_configuration, industrial_networks, plc_download]
+    auto_apply_allowed: false
+    requires: [never_automatic, senior_human_approval, documented_risk_assessment]
+
+approval:
+  approver_role: engenheiro_responsavel
+  record_required: true
+  record_location: workspace/change-sets/<id>/approval.md
+
+enforcement:
+  # Verificado por src/mastertool_bridge/changes/validator.py e scripts/mastertool/common/safety.py
+  fail_closed: true   # em dúvida, bloquear

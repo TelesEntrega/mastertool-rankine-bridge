@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/change-set.schema.json",
+  "title": "Change set — pacote estruturado de alteração proposta",
+  "type": "object",
+  "required": ["schema_version", "change_id", "status", "source_export",
+               "objects", "safety_checks"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "change_id": { "type": "string", "pattern": "^CHG-[0-9]{4}-[0-9]{4,}$" },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "validated", "approved", "rejected", "applied", "rolled_back"]
+    },
+    "source_export": { "type": "string" },
+    "source_export_hash": { "type": ["string", "null"] },
+    "target_project": { "type": ["string", "null"] },
+    "requested_by": { "type": ["string", "null"] },
+    "created_by": { "type": ["string", "null"] },
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["qualified_name", "operation", "risk_level", "reason"],
+        "properties": {
+          "qualified_name": { "type": "string" },
+          "operation": {
+            "type": "string",
+            "enum": ["replace_implementation", "replace_declaration",
+                     "add_object", "remove_object", "rename_object"]
+          },
+          "original_hash": { "type": ["string", "null"] },
+          "proposed_hash": { "type": ["string", "null"] },
+          "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "reason": { "type": "string", "minLength": 5 }
+        }
+      }
+    },
+    "safety_checks": {
+      "type": "object",
+      "required": ["changes_physical_outputs", "changes_hardware_configuration",
+                   "changes_communication_mapping", "changes_retain_data",
+                   "requires_compile", "requires_human_approval"],
+      "properties": {
+        "changes_physical_outputs": { "type": "boolean" },
+        "changes_hardware_configuration": { "type": "boolean" },
+        "changes_communication_mapping": { "type": "boolean" },
+        "changes_retain_data": { "type": "boolean" },
+        "requires_compile": { "type": "boolean" },
+        "requires_simulation": { "type": "boolean" },
+        "requires_human_approval": { "const": true }
+      }
+    }
+  }
+}

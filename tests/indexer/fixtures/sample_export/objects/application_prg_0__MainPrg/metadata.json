@@ -1,0 +1,41 @@
+{
+  "declaration": {
+    "available": true,
+    "byte_length": 188,
+    "character_length": 187,
+    "file": "declaration.st",
+    "sha256": "14b647282a3701cf3a70edb0786bb384eb617c16e97b3378a75b431a74abacb6",
+    "state": "saved"
+  },
+  "depth": 1,
+  "errors": [],
+  "identity": {
+    "is_folder": false,
+    "name": "MainPrg",
+    "object_guid": "aaaaaaaa-0000-0000-0000-000000000001",
+    "type_guid": "11111111-1111-1111-1111-111111111111"
+  },
+  "implementation": {
+    "available": false,
+    "byte_length": null,
+    "character_length": null,
+    "file": null,
+    "sha256": null,
+    "state": "indicator_confirmed_false"
+  },
+  "index": 0,
+  "node_id": "application/prg/0",
+  "parent_node_id": "application",
+  "runtime": {
+    "dotnet_type": {
+      "available": true,
+      "full_name": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject"
+    },
+    "python_type": {
+      "module": "__builtin__",
+      "name": "ExtendedObject[IScriptObject]"
+    },
+    "stringification_performed": false
+  },
+  "schema_version": "1.0"
+}

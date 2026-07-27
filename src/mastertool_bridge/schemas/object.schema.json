@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/object.schema.json",
+  "title": "Metadados de objeto exportado (metadata.json)",
+  "type": "object",
+  "required": ["schema_version", "name", "object_type", "export_status"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "name": { "type": "string" },
+    "qualified_name": { "type": ["string", "null"] },
+    "object_type": {
+      "type": "string",
+      "enum": ["program", "function_block", "function", "method", "action",
+               "property", "gvl", "dut", "visualization", "task", "device",
+               "folder", "other"]
+    },
+    "language": { "type": ["string", "null"] },
+    "parent": { "type": ["string", "null"] },
+    "identifier": { "type": ["string", "null"] },
+    "guid": { "type": ["string", "null"] },
+    "has_declaration": { "type": ["boolean", "null"] },
+    "has_implementation": { "type": ["boolean", "null"] },
+    "editable": { "type": ["boolean", "null"] },
+    "source_project_hash": { "type": ["string", "null"] },
+    "declaration_hash": { "type": ["string", "null"] },
+    "implementation_hash": { "type": ["string", "null"] },
+    "exported_at": { "type": ["string", "null"] },
+    "export_status": { "type": "string", "enum": ["success", "partial", "failed"] },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}

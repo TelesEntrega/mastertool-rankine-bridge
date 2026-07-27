@@ -1,0 +1,51 @@
+# Limites e escopo padrão do ReadOnlyTextExporter
+# (scripts/mastertool/common/read_only_text_exporter.py).
+#
+# Estes valores são GENÉRICOS — não específicos de nenhum projeto. Os
+# valores específicos de ExemploPlanta V1.0.project (expected_application_*)
+# só são passados explicitamente pelo script de validação
+# (probes/13_validate_text_exporter.py), nunca fixados aqui.
+#
+# Ver docs/12-read-only-text-export.md (fase de documentação separada)
+# para a especificação completa.
+
+text_export:
+  max_depth: 8
+  max_total_nodes: 2000
+  max_children_per_node: 256
+  max_text_objects: 500
+  max_document_characters: 2000000
+  max_total_characters: 25000000
+
+  expected_application_name: null
+  expected_application_type_guid: null
+  expected_application_guid: null
+
+  read_declarations: true
+  read_implementations: true
+  preserve_original_text: true
+  normalize_line_endings: false
+  trim_whitespace: false
+
+  continue_on_identity_error: true
+  continue_on_document_error: true
+  continue_on_text_error: true
+
+  include_empty_documents: true
+  export_non_textual_metadata: true
+
+  use_find: false
+  compile_after_export: false
+  allow_project_write: false
+
+# Limites mais conservadores usados na PRIMEIRA execução real de validação
+# (probes/13_validate_text_exporter.py) — não o padrão genérico acima.
+first_validation_run:
+  max_total_nodes: 1000
+  max_children_per_node: 128
+  max_text_objects: 300
+  max_document_characters: 1000000
+  max_total_characters: 15000000
+  expected_application_name: Application  # específico de ExemploPlanta V1.0.project
+  expected_application_type_guid: 639b491f-5557-464c-af91-1471bac9f549
+  expected_application_guid: 00000000-0000-0000-0000-000000000001

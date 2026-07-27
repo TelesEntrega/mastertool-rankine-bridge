@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "tool_version": "0.1.0",
+  "mode": "read_only",
+  "exported_at": "2026-07-23T09:45:10-03:00",
+  "duration_seconds": 4.2,
+  "hostname": "BANCADA-01",
+  "user": "sintetico",
+  "script_version": "0.1.0",
+  "exporter_git_commit": null,
+  "config_used": null,
+  "project": {
+    "name": "ProjetoExemploNX3008",
+    "path": "C:\\Projetos\\ProjetoExemploNX3008.project",
+    "hash": null
+  },
+  "environment": {
+    "mastertool_version": null,
+    "scriptengine_version": null,
+    "python_version": "2.7 (IronPython, sintetico)"
+  },
+  "statistics": {
+    "total_objects": 3,
+    "exported_objects": 3,
+    "failed_objects": 0,
+    "objects_by_type": {
+      "function_block": 1,
+      "gvl": 1,
+      "program": 1
+    }
+  },
+  "safety": {
+    "project_modified": false,
+    "compile_requested": false,
+    "download_requested": false,
+    "online_operation_requested": false
+  }
+}

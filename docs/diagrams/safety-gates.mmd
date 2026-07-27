@@ -1,0 +1,16 @@
+flowchart LR
+    P[Proposta de alteração] --> G1{{"Porta 1: cópia de trabalho"}}
+    G1 --> G2{{"Porta 2: backup + hash"}}
+    G2 --> G3{{"Porta 3: diff textual"}}
+    G3 --> G4{{"Porta 4: validação estrutural (schemas)"}}
+    G4 --> G5{{"Porta 5: compilação sem erros"}}
+    G5 --> G6{{"Porta 6: aprovação humana"}}
+    G6 --> OK[Aplicação na cópia de trabalho]
+
+    R{Risco crítico?} -. "saídas físicas, %Q, e-stop, hardware,
+    redes industriais, download" .-> NUNCA[NUNCA automático:
+    processo manual + aprovação sênior]
+    P --> R
+
+    PROIB[Proibições permanentes: projeto original, download,
+    online, start/stop, force, saídas físicas] ---|sempre bloqueado| P

@@ -1,0 +1,299 @@
+"""Validação (host, offline) do que o runner interno produziu em `output/`
+(contrato `docs/16-supervised-runner-contract.md`, seções 4/6/7).
+
+Funções puras sobre caminhos de disco — nenhuma delas toca o MasterTool, e
+todas são testáveis com `tmp_path` (nenhum `datetime.now()` na lógica de
+avaliação, mesma filosofia de `cli_probe_verify.py`).
+
+DECISÃO DE DESIGN (ambiguidade do contrato — reportada, não "corrigida" por
+conta própria): a seção 1 do contrato define `output/` como diretório
+único com "todos os artefatos de aquisição", mas NÃO nomeia os arquivos que
+`scan_project_tree`/`export_text`/`inventory_graphic_objects` gravam nele
+(esses nomes são detalhe de implementação do runner interno, desenvolvido
+em paralelo por outro agente). Os dois artefatos cujo nome o contrato
+efetivamente fixa são `run-report.json` (seção 7, a declaração final) e
+`checksums.sha256` (seção 6.1, sempre gerado pela sequência de gravação de
+artefatos). Este módulo por isso valida esses dois por nome fixo, e aceita
+uma lista adicional opcional de nomes esperados (`extra_required_filenames`)
+para quando o chamador souber, por config concreto, quais artefatos por
+operação devem existir — sem inventar nomes que o contrato não fixa.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+from mastertool_bridge.automation.result_models import ArtifactValidationResult
+
+RUN_REPORT_FILENAME = "run-report.json"
+CHECKSUMS_FILENAME = "checksums.sha256"
+
+# As 6 chaves EXATAS da declaração final (seção 7 do contrato). Todas devem
+# estar presentes e valer `False` — qualquer uma ausente ou `True` reprova.
+FINAL_DECLARATION_KEYS = (
+    "project_saved",
+    "build_called",
+    "online_operation",
+    "download_called",
+    "force_called",
+    "original_project_touched",
+)
+
+DEFAULT_REQUIRED_FILENAMES = (RUN_REPORT_FILENAME, CHECKSUMS_FILENAME)
+
+# Fase L1 (`docs/16-supervised-runner-contract.md`, seção 3.1) — quando
+# `operations.probe_ladder_surface` está ligada, o runner interno grava este
+# subdiretório dentro de `output/` com os artefatos da sondagem de
+# superfície de API sobre um único objeto POU.
+LADDER_PROBE_DIRNAME = "ladder-surface-probe"
+
+LADDER_PROBE_REQUIRED_FILENAMES = (
+    "manifest.json",
+    "target-identity.json",
+    "runtime-types.json",
+    "interfaces.json",
+    "properties.json",
+    "methods.json",
+    "safe-getter-results.json",
+    "candidate-representation-members.json",
+    "diagnostics.json",
+    "safety-declaration.json",
+    "checksums.sha256",
+    "report.md",
+)
+
+LADDER_PROBE_SAFETY_DECLARATION_FILENAME = "safety-declaration.json"
+
+# As 10 chaves EXATAS da declaração de segurança da sondagem Ladder
+# (contrato, seção 3.1). Todas devem estar presentes e valer `False` —
+# qualquer uma ausente ou `True` reprova. Não confundir com
+# `FINAL_DECLARATION_KEYS` (as 6 chaves de `run-report.json`, seção 7): são
+# duas declarações diferentes, de escopos diferentes.
+LADDER_PROBE_SAFETY_DECLARATION_KEYS = (
+    "text_document_read",
+    "text_document_write",
+    "export_called",
+    "import_called",
+    "save_called",
+    "build_called",
+    "online_operation",
+    "download_called",
+    "force_called",
+    "project_modified",
+)
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def verify_checksums(output_dir: Path) -> tuple[bool, list[str]]:
+    """Confere `output_dir/checksums.sha256` (formato `hash  caminho/rel`,
+    uma entrada por linha, gerado por `common/checksums.write_checksums_file`
+    no lado interno) contra os arquivos realmente presentes em disco.
+
+    Reprova (retorna `ok=False`) se: o arquivo não existir, alguma linha
+    tiver formato inválido, algum arquivo referenciado estiver ausente, ou
+    algum hash não bater."""
+    output_dir = Path(output_dir)
+    checksums_path = output_dir / CHECKSUMS_FILENAME
+    errors: list[str] = []
+
+    if not checksums_path.is_file():
+        return False, [f"checksums.sha256 ausente: {checksums_path}"]
+
+    try:
+        lines = checksums_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        return False, [f"checksums.sha256 ilegível: {exc}"]
+
+    checked_any = False
+    for line in lines:
+        line = line.rstrip("\n")
+        if not line.strip():
+            continue
+        # Formato "hash  caminho/relativo" (duas ou mais espaços entre
+        # hash e caminho — mesmo formato produzido por
+        # common/checksums.write_checksums_file).
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            errors.append(f"linha malformada em checksums.sha256: {line!r}")
+            continue
+        digest_expected, rel_path = parts
+        if digest_expected.upper() == "ERRO":
+            # O gerador interno também usa este arquivo para registrar
+            # falha ao calcular hash de um arquivo específico — reprova.
+            errors.append(f"checksums.sha256 registra erro de geração: {line!r}")
+            continue
+        target = output_dir / rel_path
+        checked_any = True
+        if not target.is_file():
+            errors.append(f"arquivo listado em checksums.sha256 ausente: {rel_path}")
+            continue
+        digest_actual = _sha256_file(target)
+        if digest_actual.lower() != digest_expected.lower():
+            errors.append(
+                f"checksum não fecha para {rel_path}: "
+                f"esperado={digest_expected} obtido={digest_actual}")
+
+    if not checked_any and not errors:
+        errors.append("checksums.sha256 vazio — nada para conferir")
+
+    return (len(errors) == 0), errors
+
+
+def check_errors_json_empty(output_dir: Path) -> tuple[bool, list[str]]:
+    """Procura, recursivamente, qualquer `errors.json` sob `output_dir`
+    (padrão usado pelos módulos `common/` reaproveitados — scanner,
+    exportador textual, inventário gráfico) e reprova se algum deles não
+    for uma lista JSON vazia. Ausência de `errors.json` não reprova (o
+    contrato não garante que ele sempre exista)."""
+    output_dir = Path(output_dir)
+    problems: list[str] = []
+    if not output_dir.is_dir():
+        return True, []
+
+    for path in sorted(output_dir.rglob("errors.json")):
+        try:
+            content = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            problems.append(f"errors.json ilegível ({path}): {exc}")
+            continue
+        if not isinstance(content, list):
+            problems.append(f"errors.json não é uma lista JSON ({path})")
+        elif content:
+            problems.append(f"errors.json não está vazio ({path}): {len(content)} erro(s)")
+
+    return (len(problems) == 0), problems
+
+
+def check_final_declaration(output_dir: Path) -> tuple[dict | None, list[str]]:
+    """Lê `output/run-report.json` (seção 7 do contrato) e confere que as 6
+    chaves estão presentes e valem `False`. Fail-closed: chave ausente,
+    chave extra desconhecida como `True`, ou arquivo ilegível reprovam."""
+    output_dir = Path(output_dir)
+    report_path = output_dir / RUN_REPORT_FILENAME
+    if not report_path.is_file():
+        return None, [f"run-report.json ausente: {report_path}"]
+
+    try:
+        declaration = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, [f"run-report.json ilegível: {exc}"]
+
+    if not isinstance(declaration, dict):
+        return None, ["run-report.json não é um objeto JSON"]
+
+    errors: list[str] = []
+    for key in FINAL_DECLARATION_KEYS:
+        if key not in declaration:
+            errors.append(f"run-report.json sem a chave obrigatória: {key}")
+        elif declaration[key] is not False:
+            errors.append(
+                f"run-report.json declara {key}={declaration[key]!r} (esperado: False)")
+
+    return declaration, errors
+
+
+def check_ladder_probe_safety_declaration(ladder_probe_dir: Path) -> tuple[dict | None, list[str]]:
+    """Lê `<ladder_probe_dir>/safety-declaration.json` (contrato, seção 3.1)
+    e confere que as 10 chaves estão presentes e valem `False`. Fail-closed:
+    chave ausente, chave `True`, ou arquivo ilegível/ausente reprovam —
+    mesmo critério de `check_final_declaration`, aplicado a uma declaração
+    diferente (a da sondagem Ladder, não a de `run-report.json`)."""
+    ladder_probe_dir = Path(ladder_probe_dir)
+    declaration_path = ladder_probe_dir / LADDER_PROBE_SAFETY_DECLARATION_FILENAME
+    if not declaration_path.is_file():
+        return None, [f"safety-declaration.json ausente: {declaration_path}"]
+
+    try:
+        declaration = json.loads(declaration_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, [f"safety-declaration.json ilegível: {exc}"]
+
+    if not isinstance(declaration, dict):
+        return None, ["safety-declaration.json não é um objeto JSON"]
+
+    errors: list[str] = []
+    for key in LADDER_PROBE_SAFETY_DECLARATION_KEYS:
+        if key not in declaration:
+            errors.append(f"safety-declaration.json sem a chave obrigatória: {key}")
+        elif declaration[key] is not False:
+            errors.append(
+                f"safety-declaration.json declara {key}={declaration[key]!r} "
+                "(esperado: False)")
+
+    return declaration, errors
+
+
+def validate_output_artifacts(
+    output_dir: Path,
+    operations: dict | None = None,
+    extra_required_filenames: tuple[str, ...] = (),
+) -> ArtifactValidationResult:
+    """Orquestra as checagens desta módulo em um único
+    `ArtifactValidationResult`. `operations` é aceito para uso futuro por
+    chamadores que conheçam nomes de artefato por operação (ver docstring
+    do módulo); hoje só é usado para registrar nas observações quais
+    operações estavam habilitadas."""
+    output_dir = Path(output_dir)
+    errors: list[str] = []
+    warnings: list[str] = []
+    checked_files: list[str] = []
+
+    if not output_dir.is_dir():
+        return ArtifactValidationResult(
+            ok=False, errors=[f"output_dir inexistente: {output_dir}"],
+            warnings=[], checked_files=[], final_declaration=None)
+
+    required = tuple(DEFAULT_REQUIRED_FILENAMES) + tuple(extra_required_filenames)
+    for filename in required:
+        candidate = output_dir / filename
+        if candidate.is_file():
+            checked_files.append(filename)
+        else:
+            errors.append(f"artefato esperado ausente em output/: {filename}")
+
+    checksums_ok, checksum_errors = verify_checksums(output_dir)
+    if not checksums_ok:
+        errors.extend(checksum_errors)
+
+    errors_json_ok, errors_json_problems = check_errors_json_empty(output_dir)
+    if not errors_json_ok:
+        errors.extend(errors_json_problems)
+
+    declaration, declaration_errors = check_final_declaration(output_dir)
+    if declaration_errors:
+        errors.extend(declaration_errors)
+
+    # Fase L1 (contrato, seção 3.1): quando `probe_ladder_surface` estiver
+    # ligada, output/ladder-surface-probe/ com seus 12 artefatos e a
+    # declaração de segurança de 10 chaves (todas False) também são
+    # obrigatórios. `operations` é o dict cru da seção `operations` do
+    # `run-config.json` (mesma forma de `RunOperations.to_dict()`).
+    if operations and operations.get("probe_ladder_surface"):
+        ladder_dir = output_dir / LADDER_PROBE_DIRNAME
+        for filename in LADDER_PROBE_REQUIRED_FILENAMES:
+            candidate = ladder_dir / filename
+            rel = f"{LADDER_PROBE_DIRNAME}/{filename}"
+            if candidate.is_file():
+                checked_files.append(rel)
+            else:
+                errors.append(
+                    f"artefato esperado ausente em output/{LADDER_PROBE_DIRNAME}/: {filename}")
+
+        _ladder_safety_declaration, ladder_safety_errors = (
+            check_ladder_probe_safety_declaration(ladder_dir))
+        if ladder_safety_errors:
+            errors.extend(ladder_safety_errors)
+
+    ok = len(errors) == 0
+    return ArtifactValidationResult(
+        ok=ok, errors=errors, warnings=warnings,
+        checked_files=checked_files, final_declaration=declaration)

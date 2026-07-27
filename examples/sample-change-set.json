@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "change_id": "CHG-2026-0001",
+  "status": "draft",
+  "source_export": "2026-07-23_09-45-10_ProjetoExemploNX3008",
+  "source_export_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "target_project": "copia-de-trabalho",
+  "requested_by": null,
+  "created_by": "agent",
+  "objects": [
+    {
+      "qualified_name": "Application.POUs.ControleMotor",
+      "operation": "replace_implementation",
+      "original_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "proposed_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "risk_level": "medium",
+      "reason": "Adicionar diagnostico de falha de partida (exemplo sintetico)"
+    }
+  ],
+  "safety_checks": {
+    "changes_physical_outputs": false,
+    "changes_hardware_configuration": false,
+    "changes_communication_mapping": false,
+    "changes_retain_data": false,
+    "requires_compile": true,
+    "requires_simulation": true,
+    "requires_human_approval": true
+  }
+}

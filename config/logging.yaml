@@ -1,0 +1,38 @@
+# Configuração de logging da camada externa (Python 3).
+# Os scripts IronPython usam scripts/mastertool/common/logger.py (auto-contido).
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  text:
+    format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+  json_fields:
+    # Campos obrigatórios em logs estruturados (ver docs/08-safety.md §logging):
+    # timestamp, level, script, operation, project, object, result, error,
+    # duration_ms, read_only
+    format: "%(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: text
+    stream: ext://sys.stderr
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: text
+    filename: workspace/logs/mastertool-bridge.log
+    encoding: utf-8
+    delay: true
+
+root:
+  level: INFO
+  handlers: [console]
+
+loggers:
+  mastertool_bridge:
+    level: INFO
+    handlers: [console, file]
+    propagate: false

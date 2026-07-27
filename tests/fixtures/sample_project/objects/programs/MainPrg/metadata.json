@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "name": "MainPrg",
+  "qualified_name": "Application.POUs.MainPrg",
+  "object_type": "program",
+  "language": "ST",
+  "parent": "Application.POUs",
+  "identifier": null,
+  "guid": null,
+  "has_declaration": true,
+  "has_implementation": true,
+  "editable": false,
+  "source_project_hash": null,
+  "declaration_hash": null,
+  "implementation_hash": null,
+  "exported_at": "2026-07-23T09:45:10-03:00",
+  "export_status": "success",
+  "warnings": []
+}

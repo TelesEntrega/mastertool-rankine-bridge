@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/compilation.schema.json",
+  "title": "Mensagens de compilação normalizadas",
+  "type": "object",
+  "required": ["schema_version", "messages"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "compiled_at": { "type": ["string", "null"] },
+    "success": { "type": ["boolean", "null"] },
+    "error_count": { "type": ["integer", "null"], "minimum": 0 },
+    "warning_count": { "type": ["integer", "null"], "minimum": 0 },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "text"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["error", "warning", "info", "unknown"] },
+          "text": { "type": "string" },
+          "source": { "type": ["string", "null"] },
+          "object": { "type": ["string", "null"] },
+          "location": { "type": ["string", "null"] },
+          "timestamp": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

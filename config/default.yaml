@@ -1,0 +1,53 @@
+# Configuração padrão do mastertool-ai-bridge.
+# Valores de segurança aqui são o piso; config/safety-policy.yaml formaliza os bloqueios.
+
+project:
+  name: null
+  expected_controller: NX3008
+
+paths:
+  workspace: workspace
+  exports: workspace/exports
+  logs: workspace/logs
+  backups: workspace/backups
+  change_sets: workspace/change-sets
+
+features:
+  discovery: true
+  export: true
+  analysis: true
+  documentation: true
+  compile: false            # habilitar somente após Fase 0/1 validadas
+  import: false             # bloqueado até fases 0-3 concluídas e aprovadas
+  online_operations: false  # proibido pela política de segurança
+  download_to_plc: false    # proibido pela política de segurança
+  official_api_dump: false  # ScriptEngine.DumpScriptingApi — habilitar só após
+                            # assinatura revisada (docs/api/mastertool-api-observations.md)
+
+export:
+  declarations: true
+  implementations: true
+  metadata: true
+  project_tree: true
+  libraries: true
+  tasks: true
+  devices: true
+  plcopen_xml: true
+  raw_exports: true
+  continue_on_object_error: true
+
+safety:
+  read_only: true
+  require_working_copy: true
+  require_backup: true
+  require_source_hash_match: true
+  require_compile_after_import: true
+  require_human_approval: true
+  forbid_online_operations: true
+  forbid_download: true
+  forbid_force: true
+
+logging:
+  level: INFO
+  save_json: true
+  save_text: true

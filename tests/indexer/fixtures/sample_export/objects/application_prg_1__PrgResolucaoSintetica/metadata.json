@@ -1,0 +1,41 @@
+{
+  "declaration": {
+    "available": true,
+    "byte_length": 168,
+    "character_length": 168,
+    "file": "declaration.st",
+    "sha256": "745402ab7136a716fecff1ecc4def4f6b4c40bf9d2ed73494b5c567c1e6a2257",
+    "state": "saved"
+  },
+  "depth": 1,
+  "errors": [],
+  "identity": {
+    "is_folder": false,
+    "name": "PrgResolucaoSintetica",
+    "object_guid": "aaaaaaaa-0000-0000-0000-000000000009",
+    "type_guid": "11111111-1111-1111-1111-111111111111"
+  },
+  "implementation": {
+    "available": true,
+    "byte_length": 273,
+    "character_length": 273,
+    "file": "implementation.st",
+    "sha256": "a14b522407ea22dccd8c3474477586b6c672dd3cea6854494db299cd4ba3e6e0",
+    "state": "saved"
+  },
+  "index": 7,
+  "node_id": "application/prg/1",
+  "parent_node_id": "application",
+  "runtime": {
+    "dotnet_type": {
+      "available": true,
+      "full_name": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject"
+    },
+    "python_type": {
+      "module": "__builtin__",
+      "name": "ExtendedObject[IScriptObject]"
+    },
+    "stringification_performed": false
+  },
+  "schema_version": "1.0"
+}

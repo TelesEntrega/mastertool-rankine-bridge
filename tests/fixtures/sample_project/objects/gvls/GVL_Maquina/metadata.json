@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "name": "GVL_Maquina",
+  "qualified_name": "Application.GVLs.GVL_Maquina",
+  "object_type": "gvl",
+  "language": "ST",
+  "parent": "Application.GVLs",
+  "identifier": null,
+  "guid": null,
+  "has_declaration": true,
+  "has_implementation": false,
+  "editable": false,
+  "source_project_hash": null,
+  "declaration_hash": null,
+  "implementation_hash": null,
+  "exported_at": "2026-07-23T09:45:10-03:00",
+  "export_status": "success",
+  "warnings": []
+}

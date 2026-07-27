@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "compiled_at": "2026-07-23T10:00:00-03:00",
+  "success": false,
+  "error_count": 1,
+  "warning_count": 1,
+  "messages": [
+    {
+      "severity": "error",
+      "text": "Identifier 'xInexistente' not defined",
+      "source": "compile",
+      "object": "Application.POUs.MainPrg",
+      "location": "linha 12, coluna 5",
+      "timestamp": "2026-07-23T10:00:00-03:00"
+    },
+    {
+      "severity": "warning",
+      "text": "Implicit conversion from 'DINT' to 'INT': possible loss of data",
+      "source": "compile",
+      "object": "Application.POUs.ControleMotor",
+      "location": "linha 8, coluna 9",
+      "timestamp": "2026-07-23T10:00:00-03:00"
+    }
+  ]
+}

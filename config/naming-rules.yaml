@@ -1,0 +1,24 @@
+# Regras de nomes para arquivos gerados e validações de identificadores.
+
+export_directory:
+  # workspace/exports/<timestamp>_<slug-do-projeto>/
+  timestamp_format: "%Y-%m-%d_%H-%M-%S"
+  slug:
+    lowercase: false
+    replace_spaces_with: "-"
+    allowed_chars: "A-Za-z0-9._-"
+    max_length: 60
+
+file_names:
+  # Nome de objeto vira diretório seguro; caracteres fora da lista viram "_".
+  safe_chars: "A-Za-z0-9._-"
+  reserved_windows_names:
+    [CON, PRN, AUX, NUL,
+     COM1, COM2, COM3, COM4, COM5, COM6, COM7, COM8, COM9,
+     LPT1, LPT2, LPT3, LPT4, LPT5, LPT6, LPT7, LPT8, LPT9]
+  max_path_length_warning: 240
+
+iec_identifiers:
+  # Checagens informativas (heurísticas) sobre nomes no projeto:
+  pattern: "^[A-Za-z_][A-Za-z0-9_]*$"
+  discourage_double_underscore: true

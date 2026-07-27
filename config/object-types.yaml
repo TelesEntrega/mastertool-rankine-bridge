@@ -1,0 +1,41 @@
+# Mapeamento de tipos de objetos do MasterTool/CODESYS para categorias do export.
+# Os GUIDs/identificadores reais devem ser preenchidos após a Fase 0
+# (saída de 02_dump_api_surface.py e 03_list_project_tree.py).
+# NÃO presuma GUIDs: os valores abaixo são apenas categorias internas nossas.
+
+categories:
+  program:
+    export_dir: objects/programs
+    textual: true
+  function_block:
+    export_dir: objects/function-blocks
+    textual: true
+  function:
+    export_dir: objects/functions
+    textual: true
+  method:
+    export_dir: objects/methods
+    textual: true
+  action:
+    export_dir: objects/actions
+    textual: true
+  property:
+    export_dir: objects/properties
+    textual: true
+  gvl:
+    export_dir: objects/gvls
+    textual: true
+  dut:
+    export_dir: objects/duts
+    textual: true
+  visualization:
+    export_dir: objects/visualizations
+    textual: false
+  other:
+    export_dir: objects/other
+    textual: false
+
+# Preencher após descoberta real (Fase 0):
+observed_type_guids: {}
+# Exemplo do formato esperado:
+#   "6f9dac99-8de1-4efc-8465-68ac443b7d08": { category: pou, observed_in: "MasterTool 3.63", notes: "..." }

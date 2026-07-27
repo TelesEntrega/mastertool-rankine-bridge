@@ -1,0 +1,36 @@
+{
+  "declaration": {
+    "available": true,
+    "byte_length": 173,
+    "character_length": 173,
+    "file": "declaration.st",
+    "sha256": "4faade28e44df13b20d76358bb95a44996030f14e5816fa8e3fca8605cf67683",
+    "state": "saved"
+  },
+  "depth": 1,
+  "errors": [],
+  "identity": {
+    "is_folder": false,
+    "name": "FB_TimerSintetico",
+    "object_guid": "aaaaaaaa-0000-0000-0000-000000000007",
+    "type_guid": "22222222-2222-2222-2222-222222222222"
+  },
+  "implementation": {
+    "available": false
+  },
+  "index": 3,
+  "node_id": "application/fb/2",
+  "parent_node_id": "application",
+  "runtime": {
+    "dotnet_type": {
+      "available": true,
+      "full_name": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject"
+    },
+    "python_type": {
+      "module": "__builtin__",
+      "name": "ExtendedObject[IScriptObject]"
+    },
+    "stringification_performed": false
+  },
+  "schema_version": "1.0"
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/references.schema.json",
+  "title": "Resultado de busca de referências (heurístico)",
+  "type": "object",
+  "required": ["schema_version", "symbol", "references"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "symbol": { "type": "string" },
+    "heuristic": { "const": true },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["object", "line", "usage", "snippet"],
+        "properties": {
+          "object": { "type": "string" },
+          "file": { "type": ["string", "null"] },
+          "line": { "type": "integer", "minimum": 1 },
+          "usage": {
+            "type": "string",
+            "enum": ["confirmed_write", "probable_write",
+                     "confirmed_read", "probable_read", "unknown_usage"]
+          },
+          "snippet": { "type": "string" }
+        }
+      }
+    }
+  }
+}

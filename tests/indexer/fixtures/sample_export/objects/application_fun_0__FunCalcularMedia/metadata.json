@@ -1,0 +1,41 @@
+{
+  "declaration": {
+    "available": true,
+    "byte_length": 147,
+    "character_length": 147,
+    "file": "declaration.st",
+    "sha256": "da4f93e627eab725676c31b7ce4d085e29cd5afe5277d2ed5dd631c4f7c8e0ac",
+    "state": "saved"
+  },
+  "depth": 1,
+  "errors": [],
+  "identity": {
+    "is_folder": false,
+    "name": "FunCalcularMedia",
+    "object_guid": "aaaaaaaa-0000-0000-0000-000000000003",
+    "type_guid": "33333333-3333-3333-3333-333333333333"
+  },
+  "implementation": {
+    "available": true,
+    "byte_length": 285,
+    "character_length": 285,
+    "file": "implementation.st",
+    "sha256": "0355e11d26b81277b26c517deedeb2d01adf6ff48b5e0d608b1889f9cb9e5435",
+    "state": "saved"
+  },
+  "index": 2,
+  "node_id": "application/fun/0",
+  "parent_node_id": "application",
+  "runtime": {
+    "dotnet_type": {
+      "available": true,
+      "full_name": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject"
+    },
+    "python_type": {
+      "module": "__builtin__",
+      "name": "ExtendedObject[IScriptObject]"
+    },
+    "stringification_performed": false
+  },
+  "schema_version": "1.0"
+}
