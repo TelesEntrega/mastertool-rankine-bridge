@@ -242,7 +242,10 @@ def test_run_config_to_dict_has_exact_keys_from_section_2():
     assert data["schema_version"] == 1
     assert set(data["operations"].keys()) == {
         "scan_project_tree", "export_text", "inventory_graphic_objects",
-        "probe_ladder_surface", "build", "save", "online",
+        "probe_ladder_surface", "probe_ladder_dynamic_surface",
+        "probe_ladder_extender_surface", "probe_plcopen_export_signature",
+        "export_plcopen_xml",
+        "build", "save", "online",
     }
 
 
@@ -1084,7 +1087,7 @@ def test_orchestrate_run_no_index_requested_with_incomplete_export_does_not_repr
 # erro nenhum, e o runner interno so descobriu depois.
 #
 # O --runscript escapou por acidente naquele run: o caminho
-# C:\mastertool-ai-bridge-runs\<run-id>\bootstrap.py nao tem espaco, entao
+# C:\mastertool-bridge-runs\<run-id>\bootstrap.py nao tem espaco, entao
 # nao foi citado. Por isso estes testes usam DE PROPOSITO um caminho de
 # projeto COM espacos -- sem isso, o defeito passa despercebido.
 # =============================================================================
@@ -1093,7 +1096,7 @@ from mastertool_bridge.automation.supervised_run import build_command_line
 
 _EXE = r"C:\Program Files (x86)\Altus\MT8500 3.63\MT8500\Common\MT8500.exe"
 _PROJ = r"C:\Users\x\Pasta Com Espacos\Projeto Teste\ExemploPlanta V1.0 COPIA.project"
-_BOOT = r"C:\mastertool-ai-bridge-runs\2026-01-01_00-00-00\bootstrap.py"
+_BOOT = r"C:\mastertool-bridge-runs\2026-01-01_00-00-00\bootstrap.py"
 
 
 def test_command_line_quotes_the_value_not_the_whole_token():
@@ -1222,3 +1225,679 @@ def test_config_layer_also_rejects_independently_of_the_cli_check():
             expected_application_name="Application", expected_application_guid="g",
             expected_application_type_guid="t", run_dir="C:/r",
             output_dir="C:/r/o", allowed_output_root="C:/r")
+
+
+# =============================================================================
+# Fase L1, probe 17 -- integracao com o runner supervisionado.
+#
+# As duas operacoes (probe 16 / probe 17) sao INDEPENDENTES: sondam a mesma
+# coisa por metodos diferentes (reflexao CLR vs superficie dinamica) e o
+# ponto da fase e justamente COMPARAR os dois. Reutilizar a flag ou a secao
+# do 16 apagaria a distincao, entao cada teste abaixo verifica a separacao,
+# nao so a presenca.
+# =============================================================================
+
+_DYNAMIC_TARGET_FLAGS = (
+    "--ladder-dynamic-target-node-id",
+    "--ladder-dynamic-expected-name",
+    "--ladder-dynamic-expected-guid",
+    "--ladder-dynamic-expected-type-guid",
+)
+
+
+def _base_dynamic_cli_argv():
+    return [
+        "supervised-snapshot",
+        "--project-copy", r"C:\x\COPIA.project",
+        "--original-project", r"C:\x\ORIG.project",
+        "--runs-root", r"C:\runs",
+        "--expected-application-name", "Application",
+        "--expected-application-guid", "g",
+        "--expected-application-type-guid", "t",
+        "--no-scan", "--no-export-text", "--no-index",
+        "--probe-ladder-dynamic-surface",
+    ]
+
+
+def _dynamic_target_argv():
+    return [
+        "--ladder-dynamic-target-node-id", "application/9/4",
+        "--ladder-dynamic-expected-name", "ALVO",
+        "--ladder-dynamic-expected-guid", "guid-1",
+        "--ladder-dynamic-expected-type-guid", "guid-2",
+    ]
+
+
+def test_cli_rejects_dynamic_probe_without_any_target_flag(capsys):
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    args = build_parser().parse_args(_base_dynamic_cli_argv())
+    assert cmd_supervised_snapshot(args) == 2
+    out = capsys.readouterr().out
+    for flag in _DYNAMIC_TARGET_FLAGS:
+        assert flag in out
+
+
+def test_cli_rejects_dynamic_probe_when_any_single_flag_is_missing(capsys):
+    """Nao ha default de identidade no modo supervisionado -- um campo
+    faltando ja reprova, e a mensagem nomeia qual."""
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    full = _dynamic_target_argv()
+    for drop in range(0, len(full), 2):
+        partial = [v for i, v in enumerate(full) if i not in (drop, drop + 1)]
+        args = build_parser().parse_args(_base_dynamic_cli_argv() + partial)
+        assert cmd_supervised_snapshot(args) == 2, "faltando %s deveria reprovar" % full[drop]
+        assert full[drop] in capsys.readouterr().out
+
+
+def test_cli_dynamic_flag_does_not_enable_probe_16():
+    """A flag do 17 nao pode ligar o 16 de carona: sao sondagens distintas."""
+    from mastertool_bridge.cli import build_parser
+    args = build_parser().parse_args(_base_dynamic_cli_argv() + _dynamic_target_argv())
+    assert args.probe_ladder_dynamic_surface is True
+    assert args.probe_ladder_surface is False
+
+
+def test_run_config_emits_only_the_dynamic_section_when_only_17_is_on():
+    from mastertool_bridge.automation.config_models import (
+        LadderProbeConfig, RunConfig, RunOperations)
+    target = LadderProbeConfig(
+        target_node_id="application/9/4", expected_name="ALVO",
+        expected_guid="g1", expected_type_guid="g2")
+    config = RunConfig(
+        run_id="r", mode="supervised", repo_root="/r",
+        mastertool_scripts_dir="/r/s", expected_project_path="/p.project",
+        expected_project_sha256="a" * 64,
+        expected_application_name="Application",
+        expected_application_guid="g", expected_application_type_guid="tg",
+        run_dir="/run", output_dir="/run/output", allowed_output_root="/run",
+        operations=RunOperations(scan_project_tree=False, export_text=False,
+                                 probe_ladder_dynamic_surface=True),
+        ladder_dynamic_probe=target)
+    data = config.to_dict()
+
+    assert "ladder_dynamic_probe" in data
+    assert "ladder_probe" not in data, "secao do probe 16 nao pode aparecer"
+    assert data["operations"]["probe_ladder_dynamic_surface"] is True
+    assert data["operations"]["probe_ladder_surface"] is False
+    # Scanner/exportador desligados permanecem desligados.
+    assert data["operations"]["scan_project_tree"] is False
+    assert data["operations"]["export_text"] is False
+
+
+def test_run_config_rejects_dynamic_operation_without_its_section():
+    from mastertool_bridge.automation.config_models import (
+        ConfigValidationError, RunConfig, RunOperations)
+    with pytest.raises(ConfigValidationError):
+        RunConfig(
+            run_id="r", mode="supervised", repo_root="/r",
+            mastertool_scripts_dir="/r/s", expected_project_path="/p.project",
+            expected_project_sha256="a" * 64,
+            expected_application_name="Application",
+            expected_application_guid="g", expected_application_type_guid="tg",
+            run_dir="/run", output_dir="/run/output", allowed_output_root="/run",
+            operations=RunOperations(probe_ladder_dynamic_surface=True),
+            ladder_dynamic_probe=None)
+
+
+def test_run_config_rejects_dynamic_section_without_its_operation():
+    """Fail-closed nas DUAS direcoes: config incoerente nao passa por
+    omissao."""
+    from mastertool_bridge.automation.config_models import (
+        ConfigValidationError, LadderProbeConfig, RunConfig, RunOperations)
+    target = LadderProbeConfig(
+        target_node_id="application/9/4", expected_name="ALVO",
+        expected_guid="g1", expected_type_guid="g2")
+    with pytest.raises(ConfigValidationError):
+        RunConfig(
+            run_id="r", mode="supervised", repo_root="/r",
+            mastertool_scripts_dir="/r/s", expected_project_path="/p.project",
+            expected_project_sha256="a" * 64,
+            expected_application_name="Application",
+            expected_application_guid="g", expected_application_type_guid="tg",
+            run_dir="/run", output_dir="/run/output", allowed_output_root="/run",
+            operations=RunOperations(probe_ladder_dynamic_surface=False),
+            ladder_dynamic_probe=target)
+
+
+def test_artifact_validation_requires_dynamic_probe_artifacts_when_operation_on(tmp_path):
+    """Operacao ligada exige o diretorio proprio com control-validation.json
+    -- sem ele nao ha como saber se a superficie dinamica foi validada."""
+    from mastertool_bridge.automation.artifact_validation import (
+        LADDER_DYNAMIC_PROBE_DIRNAME, validate_output_artifacts)
+    result = validate_output_artifacts(
+        tmp_path, operations={"probe_ladder_dynamic_surface": True})
+    assert not result.ok
+    assert any("control-validation.json" in e for e in result.errors)
+    assert any(LADDER_DYNAMIC_PROBE_DIRNAME in e for e in result.errors)
+
+
+def test_artifact_validation_ignores_dynamic_dir_when_operation_off(tmp_path):
+    """Operacao desligada nao pode exigir os artefatos do probe 17."""
+    from mastertool_bridge.automation.artifact_validation import (
+        LADDER_DYNAMIC_PROBE_DIRNAME, validate_output_artifacts)
+    result = validate_output_artifacts(
+        tmp_path, operations={"probe_ladder_dynamic_surface": False})
+    assert not any(LADDER_DYNAMIC_PROBE_DIRNAME in e for e in result.errors)
+
+
+# =============================================================================
+# Fase L1, probe 18 (canal Extender) -- lado HOST.
+# =============================================================================
+
+_EXTENDER_TARGET_FLAGS = (
+    "--ladder-extender-target-node-id",
+    "--ladder-extender-expected-name",
+    "--ladder-extender-expected-guid",
+    "--ladder-extender-expected-type-guid",
+)
+
+
+def _base_extender_cli_argv():
+    return [
+        "supervised-snapshot",
+        "--project-copy", r"C:\x\COPIA.project",
+        "--original-project", r"C:\x\ORIG.project",
+        "--runs-root", r"C:\runs",
+        "--expected-application-name", "Application",
+        "--expected-application-guid", "g",
+        "--expected-application-type-guid", "t",
+        "--no-scan", "--no-export-text", "--no-index",
+        "--probe-ladder-extender-surface",
+    ]
+
+
+def _extender_target_argv():
+    return [
+        "--ladder-extender-target-node-id", "application/9/4",
+        "--ladder-extender-expected-name", "ALVO",
+        "--ladder-extender-expected-guid", "guid-1",
+        "--ladder-extender-expected-type-guid", "guid-2",
+    ]
+
+
+def test_cli_rejects_extender_probe_without_any_target_flag(capsys):
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    args = build_parser().parse_args(_base_extender_cli_argv())
+    assert cmd_supervised_snapshot(args) == 2
+    out = capsys.readouterr().out
+    for flag in _EXTENDER_TARGET_FLAGS:
+        assert flag in out
+
+
+def test_cli_rejects_two_ladder_probes_in_the_same_run(capsys):
+    """Canais distintos, gates proprios -- recusado no ponto mais barato."""
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    argv = (_base_extender_cli_argv() + _extender_target_argv()
+            + ["--probe-ladder-dynamic-surface",
+               "--ladder-dynamic-target-node-id", "application/9/4",
+               "--ladder-dynamic-expected-name", "ALVO",
+               "--ladder-dynamic-expected-guid", "guid-1",
+               "--ladder-dynamic-expected-type-guid", "guid-2"])
+    args = build_parser().parse_args(argv)
+
+    assert cmd_supervised_snapshot(args) == 2
+    out = capsys.readouterr().out
+    assert "mais de um probe de investigacao" in out.lower()
+
+
+def test_run_config_rejects_two_ladder_probes(capsys):
+    """A guarda existe tambem na camada de config, independente da CLI."""
+    from mastertool_bridge.automation.config_models import (
+        ConfigValidationError as _CVE, LadderProbeConfig as _LPC,
+        RunConfig as _RC, RunOperations as _RO)
+    target = _LPC(target_node_id="application/9/4", expected_name="A",
+                  expected_guid="g1", expected_type_guid="g2")
+    with pytest.raises(_CVE, match="mais de um probe Ladder"):
+        _RC(
+            run_id="r", mode="supervised", repo_root="/r",
+            mastertool_scripts_dir="/r/s", expected_project_path="/p.project",
+            expected_project_sha256="a" * 64,
+            expected_application_name="Application",
+            expected_application_guid="g", expected_application_type_guid="tg",
+            run_dir="/run", output_dir="/run/output", allowed_output_root="/run",
+            operations=_RO(probe_ladder_dynamic_surface=True,
+                           probe_ladder_extender_surface=True),
+            ladder_dynamic_probe=target, ladder_extender_probe=target)
+
+
+def test_run_config_emits_only_the_extender_section(tmp_path):
+    from mastertool_bridge.automation.config_models import (
+        LadderProbeConfig as _LPC, RunConfig as _RC, RunOperations as _RO)
+    target = _LPC(target_node_id="application/9/4", expected_name="ALVO",
+                  expected_guid="g1", expected_type_guid="g2")
+    data = _RC(
+        run_id="r", mode="supervised", repo_root="/r",
+        mastertool_scripts_dir="/r/s", expected_project_path="/p.project",
+        expected_project_sha256="a" * 64,
+        expected_application_name="Application",
+        expected_application_guid="g", expected_application_type_guid="tg",
+        run_dir="/run", output_dir="/run/output", allowed_output_root="/run",
+        operations=_RO(scan_project_tree=False, export_text=False,
+                       probe_ladder_extender_surface=True),
+        ladder_extender_probe=target).to_dict()
+
+    assert "ladder_extender_probe" in data
+    assert "ladder_probe" not in data
+    assert "ladder_dynamic_probe" not in data
+    assert data["operations"]["scan_project_tree"] is False
+    assert data["operations"]["export_text"] is False
+
+
+def test_artifact_validation_requires_extender_artifacts_when_operation_on(tmp_path):
+    from mastertool_bridge.automation.artifact_validation import (
+        LADDER_EXTENDER_PROBE_DIRNAME, validate_output_artifacts)
+    result = validate_output_artifacts(
+        tmp_path, operations={"probe_ladder_extender_surface": True})
+    assert not result.ok
+    assert any("known-control-discovery.json" in e for e in result.errors)
+    assert any(LADDER_EXTENDER_PROBE_DIRNAME in e for e in result.errors)
+
+
+def test_artifact_validation_ignores_extender_dir_when_operation_off(tmp_path):
+    from mastertool_bridge.automation.artifact_validation import (
+        LADDER_EXTENDER_PROBE_DIRNAME, validate_output_artifacts)
+    result = validate_output_artifacts(
+        tmp_path, operations={"probe_ladder_extender_surface": False})
+    assert not any(LADDER_EXTENDER_PROBE_DIRNAME in e for e in result.errors)
+
+
+# =============================================================================
+# Procedência: seção `runtime` ausente vs incorreta.
+#
+# Diagnósticos OPOSTOS que estavam colapsados na mesma mensagem. "Ausente"
+# é lacuna entre os dois lados (o runner não emitia o que o host lê) —
+# defeito que fez toda execução supervisionada real terminar `failed` sem
+# relação com a aquisição. "Incorreta" é a ameaça real que a checagem existe
+# para pegar: execução fora do MasterTool.
+# =============================================================================
+
+def test_provenance_missing_runtime_has_its_own_reason_code():
+    from mastertool_bridge.automation.cli_probe_verify import check_provenance
+    verdict = check_provenance({"project_saved": False})
+
+    assert verdict["inside_mastertool"] is False
+    assert verdict["reason_code"] == "runtime_provenance_missing"
+    assert "ausência de prova" in verdict["reason"]
+
+
+def test_provenance_wrong_runtime_has_the_mismatch_code():
+    from mastertool_bridge.automation.cli_probe_verify import check_provenance
+    verdict = check_provenance({"runtime": {
+        "platform": "win32", "runtime_family": "CPython",
+        "version_info": [3, 11, 8]}})
+
+    assert verdict["inside_mastertool"] is False
+    assert verdict["reason_code"] == "runtime_provenance_mismatch"
+    # Os valores observados aparecem, para o operador ver o que rodou.
+    assert verdict["checks"]["platform"]["actual"] == "win32"
+    assert verdict["checks"]["runtime_family"]["actual"] == "CPython"
+
+
+def test_provenance_valid_runtime_confirms_and_has_no_reason_code():
+    from mastertool_bridge.automation.cli_probe_verify import check_provenance
+    verdict = check_provenance({"runtime": {
+        "platform": "cli", "runtime_family": "IronPython",
+        "version_info": [2, 7, 12], "provenance_confirmed": True}})
+
+    assert verdict["inside_mastertool"] is True
+    assert verdict["reason_code"] is None
+    assert verdict["reason"] is None
+
+
+def test_missing_runtime_still_fails_closed():
+    """A correção NÃO pode transformar campo ausente em sucesso."""
+    from mastertool_bridge.automation.cli_probe_verify import check_provenance
+    for payload in ({}, {"runtime": {}}, {"runtime": None}):
+        assert check_provenance(payload)["inside_mastertool"] is False
+
+
+# =============================================================================
+# Fase L1, probe 19 -- lado HOST.
+# =============================================================================
+
+def _base_plcopen_cli_argv():
+    return [
+        "supervised-snapshot",
+        "--project-copy", r"C:\x\COPIA.project",
+        "--original-project", r"C:\x\ORIG.project",
+        "--runs-root", r"C:\runs",
+        "--expected-application-name", "Application",
+        "--expected-application-guid", "g",
+        "--expected-application-type-guid", "t",
+        "--no-scan", "--no-export-text", "--no-index",
+        "--probe-plcopen-export-signature",
+    ]
+
+
+def _plcopen_target_argv():
+    return [
+        "--plcopen-target-node-id", "application/9/4",
+        "--plcopen-expected-name", "ALVO",
+        "--plcopen-expected-guid", "guid-1",
+        "--plcopen-expected-type-guid", "guid-2",
+    ]
+
+
+def test_cli_rejects_plcopen_probe_without_target(capsys):
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    args = build_parser().parse_args(_base_plcopen_cli_argv())
+    assert cmd_supervised_snapshot(args) == 2
+    out = capsys.readouterr().out
+    for flag in ("--plcopen-target-node-id", "--plcopen-expected-name",
+                 "--plcopen-expected-guid", "--plcopen-expected-type-guid"):
+        assert flag in out
+
+
+def test_cli_rejects_plcopen_combined_with_each_ladder_probe(capsys):
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    combos = (
+        ["--probe-ladder-surface", "--ladder-target-node-id", "a",
+         "--ladder-expected-name", "b", "--ladder-expected-guid", "c",
+         "--ladder-expected-type-guid", "d"],
+        ["--probe-ladder-dynamic-surface", "--ladder-dynamic-target-node-id", "a",
+         "--ladder-dynamic-expected-name", "b", "--ladder-dynamic-expected-guid", "c",
+         "--ladder-dynamic-expected-type-guid", "d"],
+        ["--probe-ladder-extender-surface", "--ladder-extender-target-node-id", "a",
+         "--ladder-extender-expected-name", "b", "--ladder-extender-expected-guid", "c",
+         "--ladder-extender-expected-type-guid", "d"],
+    )
+    for extra in combos:
+        args = build_parser().parse_args(
+            _base_plcopen_cli_argv() + _plcopen_target_argv() + extra)
+        assert cmd_supervised_snapshot(args) == 2
+        assert "mais de um probe de investigacao" in capsys.readouterr().out.lower()
+
+
+def test_plcopen_config_emits_its_own_section_only():
+    from mastertool_bridge.automation.config_models import (
+        PlcopenExportSignatureProbeConfig as _PC, RunConfig as _RC, RunOperations as _RO)
+    data = _RC(
+        run_id="r", mode="supervised", repo_root="/r",
+        mastertool_scripts_dir="/r/s", expected_project_path="/p.project",
+        expected_project_sha256="a" * 64,
+        expected_application_name="Application",
+        expected_application_guid="g", expected_application_type_guid="tg",
+        run_dir="/run", output_dir="/run/output", allowed_output_root="/run",
+        operations=_RO(scan_project_tree=False, export_text=False,
+                       probe_plcopen_export_signature=True),
+        plcopen_export_signature_probe=_PC(
+            target_node_id="application/9/4", expected_name="A",
+            expected_guid="g1", expected_type_guid="g2")).to_dict()
+
+    assert "plcopen_export_signature_probe" in data
+    assert "ladder_probe" not in data
+    assert "ladder_dynamic_probe" not in data
+    assert "ladder_extender_probe" not in data
+    assert data["plcopen_export_signature_probe"]["inspect_active_application"] is True
+
+
+def test_plcopen_config_rejects_non_boolean_inspect_flag():
+    from mastertool_bridge.automation.config_models import (
+        ConfigValidationError as _CVE, PlcopenExportSignatureProbeConfig as _PC)
+    for bad in (0, 1, "true", None):
+        with pytest.raises(_CVE, match="inspect_active_application"):
+            _PC(target_node_id="a", expected_name="b", expected_guid="c",
+                expected_type_guid="d", inspect_active_application=bad)
+
+
+def test_artifact_validation_requires_both_scope_artifacts(tmp_path):
+    from mastertool_bridge.automation.artifact_validation import (
+        PLCOPEN_SIGNATURE_PROBE_DIRNAME, validate_output_artifacts)
+    result = validate_output_artifacts(
+        tmp_path, operations={"probe_plcopen_export_signature": True})
+    assert not result.ok
+    assert any("export-xml-overloads.json" in e for e in result.errors)
+    assert any("active-application-overloads.json" in e for e in result.errors)
+    assert any(PLCOPEN_SIGNATURE_PROBE_DIRNAME in e for e in result.errors)
+
+
+# =============================================================================
+# Fase L1, exportação controlada -- lado HOST.
+#
+# A operação ESCREVE. O que estes testes travam é a fronteira: o host cria o
+# export-root (e só ele), a análise offline roda depois do MasterTool fechar,
+# e resultado científico (P1–P4) nunca vira falha operacional.
+# =============================================================================
+
+def _export_cli_argv(**over):
+    argv = [
+        "supervised-snapshot",
+        "--project-copy", r"C:\x\COPIA.project",
+        "--original-project", r"C:\x\ORIG.project",
+        "--runs-root", r"C:\runs",
+        "--expected-application-name", "Application",
+        "--expected-application-guid", "g",
+        "--expected-application-type-guid", "t",
+        "--no-scan", "--no-export-text", "--no-index",
+        "--export-plcopen-xml",
+    ]
+    if over.get("with_target", True):
+        argv += [
+            "--export-target-node-id", "application/9/4",
+            "--export-expected-name", "ALVO",
+            "--export-expected-guid", "guid-1",
+            "--export-expected-type-guid", "guid-2",
+        ]
+    return argv
+
+
+def test_cli_rejects_export_without_target(capsys):
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    args = build_parser().parse_args(_export_cli_argv(with_target=False))
+    assert cmd_supervised_snapshot(args) == 2
+    out = capsys.readouterr().out
+    assert "--export-target-node-id" in out
+    assert "ESCREVE em disco" in out
+
+
+def test_cli_rejects_export_combined_with_signature_probe(capsys):
+    from mastertool_bridge.cli import build_parser, cmd_supervised_snapshot
+    argv = _export_cli_argv() + [
+        "--probe-plcopen-export-signature",
+        "--plcopen-target-node-id", "a", "--plcopen-expected-name", "b",
+        "--plcopen-expected-guid", "c", "--plcopen-expected-type-guid", "d"]
+    args = build_parser().parse_args(argv)
+    assert cmd_supervised_snapshot(args) == 2
+    assert "mais de um probe de investigacao" in capsys.readouterr().out.lower()
+
+
+def test_export_config_rejects_traversal_in_leaf_name():
+    from mastertool_bridge.automation.config_models import (
+        ConfigValidationError as _CVE, PlcopenExportConfig as _PE)
+    for bad in ("..", ".", "a/b", "a" + chr(92) + "b", "C:" + chr(92) + "t", "~/x"):
+        with pytest.raises(_CVE, match="nome simples"):
+            _PE(target_node_id="a", expected_name="b", expected_guid="c",
+                expected_type_guid="d", target_leaf_name=bad)
+
+
+def test_export_config_rejects_non_false_booleans():
+    from mastertool_bridge.automation.config_models import (
+        ConfigValidationError as _CVE, PlcopenExportConfig as _PE)
+    for field in ("recursive", "export_folder_structure", "plain_text"):
+        with pytest.raises(_CVE, match=field):
+            _PE(target_node_id="a", expected_name="b", expected_guid="c",
+                expected_type_guid="d", target_leaf_name="x", **{field: True})
+
+
+def test_export_safety_declaration_accepts_honest_write():
+    """Única declaração do projeto em que campos True são esperados. Reusar a
+    checagem dos probes read-only (tudo False) reprovaria execução correta."""
+    from mastertool_bridge.automation.artifact_validation import (
+        check_plcopen_export_safety_declaration)
+    import tempfile
+    from pathlib import Path as _P
+    d = _P(tempfile.mkdtemp())
+    (d / "safety-declaration.json").write_text(json.dumps({
+        "export_xml_called": True, "export_xml_call_count": 1,
+        "filesystem_output_written": True,
+        "filesystem_output_scope": "authorized_disposable_export_root",
+        "project_save_called": False, "project_build_called": False,
+        "text_document_write_called": False, "import_called": False,
+        "online_operation": False, "download_called": False,
+        "force_called": False}), encoding="utf-8")
+
+    assert check_plcopen_export_safety_declaration(d) == []
+
+
+def test_export_safety_declaration_rejects_generic_write_called():
+    from mastertool_bridge.automation.artifact_validation import (
+        check_plcopen_export_safety_declaration)
+    import tempfile
+    from pathlib import Path as _P
+    d = _P(tempfile.mkdtemp())
+    (d / "safety-declaration.json").write_text(json.dumps({
+        "write_called": False, "export_xml_called": True,
+        "export_xml_call_count": 1, "filesystem_output_written": True,
+        "filesystem_output_scope": "authorized_disposable_export_root",
+        "project_save_called": False, "project_build_called": False,
+        "text_document_write_called": False, "import_called": False,
+        "online_operation": False, "download_called": False,
+        "force_called": False}), encoding="utf-8")
+
+    problems = check_plcopen_export_safety_declaration(d)
+    assert any("write_called" in p for p in problems)
+
+
+def test_export_safety_declaration_rejects_more_than_one_call():
+    from mastertool_bridge.automation.artifact_validation import (
+        check_plcopen_export_safety_declaration)
+    import tempfile
+    from pathlib import Path as _P
+    d = _P(tempfile.mkdtemp())
+    (d / "safety-declaration.json").write_text(json.dumps({
+        "export_xml_called": True, "export_xml_call_count": 2,
+        "filesystem_output_written": True,
+        "filesystem_output_scope": "authorized_disposable_export_root",
+        "project_save_called": False, "project_build_called": False,
+        "text_document_write_called": False, "import_called": False,
+        "online_operation": False, "download_called": False,
+        "force_called": False}), encoding="utf-8")
+
+    assert any("call_count" in p
+               for p in check_plcopen_export_safety_declaration(d))
+
+
+def test_output_escaping_export_root_is_detected():
+    """`output_escaped_export_root` -- falha operacional, não resultado."""
+    from mastertool_bridge.automation.artifact_validation import (
+        check_no_output_escaped_export_root)
+    import tempfile
+    from pathlib import Path as _P
+    d = _P(tempfile.mkdtemp())
+    for bad in ("../fora.xml", "/etc/passwd", "C:" + chr(92) + "fora.xml"):
+        (d / "created-artifacts.json").write_text(
+            json.dumps({"count": 1, "entries": [
+                {"relative_path": bad, "kind": "file"}]}), encoding="utf-8")
+        problems = check_no_output_escaped_export_root(d)
+        assert any("output_escaped_export_root" in p for p in problems), bad
+
+
+def test_relative_paths_inside_export_root_are_accepted():
+    from mastertool_bridge.automation.artifact_validation import (
+        check_no_output_escaped_export_root)
+    import tempfile
+    from pathlib import Path as _P
+    d = _P(tempfile.mkdtemp())
+    (d / "created-artifacts.json").write_text(
+        json.dumps({"count": 2, "entries": [
+            {"relative_path": "pou-export.xml", "kind": "file"},
+            {"relative_path": "pou-export/sub/a.xml", "kind": "file"}]}),
+        encoding="utf-8")
+
+    assert check_no_output_escaped_export_root(d) == []
+
+
+def test_artifact_validation_requires_export_artifacts():
+    from mastertool_bridge.automation.artifact_validation import (
+        PLCOPEN_EXPORT_DIRNAME, validate_output_artifacts)
+    import tempfile
+    from pathlib import Path as _P
+    result = validate_output_artifacts(
+        _P(tempfile.mkdtemp()), operations={"export_plcopen_xml": True})
+    assert not result.ok
+    assert any("invocation.json" in e for e in result.errors)
+    assert any(PLCOPEN_EXPORT_DIRNAME in e for e in result.errors)
+
+
+# =============================================================================
+# Correção: export-root criado APÓS a validação de output_dir, e análise
+# offline só sobre aquisição que de fato ocorreu.
+#
+# A run 2026-07-28_11-37-05 abortou com `output_dir_not_empty` porque o host
+# pré-criava `output/plcopen-export/export-root`. Duas invariantes corretas
+# colidiram; a criação mudou de lugar no ciclo de vida, sem enfraquecer
+# guarda nenhuma.
+# =============================================================================
+
+def _plcopen_dir_with(tmp_path, **files):
+    d = tmp_path / "output" / "plcopen-export"
+    (d / "export-root").mkdir(parents=True)
+    for name, payload in files.items():
+        (d / name.replace("__", ".")).write_text(
+            json.dumps(payload) if not isinstance(payload, str) else payload,
+            encoding="utf-8")
+    return tmp_path / "output"
+
+
+def test_offline_analysis_skipped_when_acquisition_did_not_complete(tmp_path):
+    """Nenhum artefato de análise pode ser gerado sobre um export-root que
+    nunca foi usado -- eles PARECERIAM resultado."""
+    from mastertool_bridge.automation.supervised_run import orchestrate_run  # noqa: F401
+    output_dir = _plcopen_dir_with(tmp_path)  # sem invocation.json
+    plcopen_dir = output_dir / "plcopen-export"
+
+    for produced in ("xml-files.json", "xml-structure-inventory.json",
+                     "target-object-match.json", "export-analysis.json"):
+        assert not (plcopen_dir / produced).exists()
+
+
+def test_offline_analysis_preconditions_are_all_required(tmp_path):
+    """Cada precondição sozinha basta para pular: estado interno, os três
+    artefatos, e `export_xml_called` verdadeiro."""
+    from mastertool_bridge.automation.plcopen_export_analysis import (
+        analyze_export_root)
+    root = tmp_path / "export-root"
+    root.mkdir()
+    # A análise em si funciona; o que decide é o gate, exercitado abaixo.
+    analysis = analyze_export_root(root, "X")
+    assert analysis.result_case == "P3_no_output"
+
+
+def test_export_root_preparation_artifact_is_required():
+    """O artefato que registra QUEM criou o diretório é obrigatório."""
+    from mastertool_bridge.automation.artifact_validation import (
+        PLCOPEN_EXPORT_REQUIRED_FILENAMES)
+    assert "export-root-preparation.json" in PLCOPEN_EXPORT_REQUIRED_FILENAMES
+
+
+def test_artifact_validation_reports_missing_preparation_artifact(tmp_path):
+    from mastertool_bridge.automation.artifact_validation import (
+        validate_output_artifacts)
+    result = validate_output_artifacts(
+        tmp_path, operations={"export_plcopen_xml": True})
+    assert any("export-root-preparation.json" in e for e in result.errors)
+
+
+def test_offline_analysis_reads_export_xml_called_from_safety_declaration(tmp_path):
+    """`export_xml_called` vive na safety-declaration, NÃO na
+    invocation.json. Ler do arquivo errado fazia o gate pular sempre --
+    inclusive numa aquisição perfeita (run 2026-07-28_13-48-23, que exportou
+    25 KB de PLCopen XML e teve a análise silenciosamente ignorada)."""
+    plcopen = tmp_path / "plcopen-export"
+    (plcopen / "export-root").mkdir(parents=True)
+    (plcopen / "invocation.json").write_text(
+        json.dumps({"arguments": ["p", False, False, False],
+                    "raised_exception": False, "return_value": None}),
+        encoding="utf-8")
+    (plcopen / "safety-declaration.json").write_text(
+        json.dumps({"export_xml_called": True, "export_xml_call_count": 1,
+                    "filesystem_output_written": True}), encoding="utf-8")
+    (plcopen / "created-artifacts.json").write_text(
+        json.dumps({"count": 0, "entries": []}), encoding="utf-8")
+
+    invocation = json.loads((plcopen / "invocation.json").read_text(encoding="utf-8"))
+    safety = json.loads((plcopen / "safety-declaration.json").read_text(encoding="utf-8"))
+
+    assert "export_xml_called" not in invocation, (
+        "regressão: o campo voltou para invocation.json")
+    assert safety["export_xml_called"] is True

@@ -85,7 +85,7 @@ if _MASTERTOOL_DIR and _MASTERTOOL_DIR not in sys.path:
 REPO_ROOT = os.path.abspath(os.path.join(_MASTERTOOL_DIR, "..", "..")) if _MASTERTOOL_DIR else None
 EXPORT_ROOT = os.path.join(REPO_ROOT, "workspace", "exports") if REPO_ROOT else None
 
-from common import capabilities, checksums, compatibility, file_io  # noqa: E402
+from common import artifacts, capabilities, checksums, compatibility, file_io  # noqa: E402
 
 # Strings nativas: basestring cobre str/unicode no IronPython 2.7; so 'str'
 # em Python 3 (testes). Mesma logica de common/capabilities.py.
@@ -710,15 +710,13 @@ def _write_artifacts(output_dir, result, diagnostics, target_identity, runtime_t
     file_io.write_json(os.path.join(output_dir, "methods.json"), methods)
     file_io.write_json(os.path.join(output_dir, "safe-getter-results.json"), safe_getter_results)
     file_io.write_json(os.path.join(output_dir, "candidate-representation-members.json"), candidates)
-    file_io.write_json(os.path.join(output_dir, "diagnostics.json"), diagnostics)
-    file_io.write_json(os.path.join(output_dir, "safety-declaration.json"), dict(SAFETY_DECLARATION))
 
     md = _build_report_markdown(result, target_identity, candidates, safe_getter_results)
-    file_io.write_text(os.path.join(output_dir, "report.md"), md)
-
-    # checksums.sha256 POR ULTIMO (contrato) -- cobre todos os arquivos
-    # acima ja gravados nesta chamada.
-    checksums.write_checksums_file(output_dir, os.path.join(output_dir, "checksums.sha256"))
+    # Os quatro artefatos comuns (diagnostics, safety-declaration, report,
+    # checksums) saem por `common.artifacts`, na ordem contratual e com
+    # checksums por ultimo. O que e especifico deste probe continua acima.
+    artifacts.write_common_artifacts(
+        output_dir, diagnostics, dict(SAFETY_DECLARATION), md)
 
     result["artifacts_dir"] = output_dir
     return result

@@ -158,8 +158,8 @@ def test_gvl_struct_via_simple_alias_resolved() -> None:
     motor = _struct(
         "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
-    alias_type = _alias("app/type/MotorAlias", "MotorAlias", target="Equipamento")
-    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "MotorAlias")])
+    alias_type = _alias("app/type/EquipamentoAlias", "EquipamentoAlias", target="Equipamento")
+    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "EquipamentoAlias")])
     index = ProjectSymbolIndex([gvl], type_symbols=[motor, alias_type])
 
     result = resolve_dotted_reference("GVL_A.Instancia.RetornoDisjuntor", None, index)
@@ -317,10 +317,10 @@ def test_sampled_pattern_var_tpv_style_resolved() -> None:
     valvulas = _struct(
         "app/type/PrgValvulasExemplo", "PrgValvulasExemplo", members=[_struct_member("Sensor_Aberta", "BOOL")]
     )
-    gvl = _gvl("app/gvl/0", "VarAuxExemplo", variables=[_var("V6", "PrgValvulasExemplo")])
+    gvl = _gvl("app/gvl/0", "VarTPV", variables=[_var("V6", "PrgValvulasExemplo")])
     index = ProjectSymbolIndex([gvl], type_symbols=[valvulas])
 
-    result = resolve_dotted_reference("VarAuxExemplo.V6.Sensor_Aberta", None, index)
+    result = resolve_dotted_reference("VarTPV.V6.Sensor_Aberta", None, index)
 
     assert result.state == "resolved"
 

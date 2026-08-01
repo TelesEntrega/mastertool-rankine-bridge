@@ -49,6 +49,119 @@ DEFAULT_REQUIRED_FILENAMES = (RUN_REPORT_FILENAME, CHECKSUMS_FILENAME)
 # superfície de API sobre um único objeto POU.
 LADDER_PROBE_DIRNAME = "ladder-surface-probe"
 
+# Fase L1, probe 17 — sondagem da superfície DINÂMICA. Diretório separado do
+# probe 16 de propósito: são duas sondagens independentes (reflexão CLR vs
+# `dir()`/`hasattr()` do IronPython), podem ser ligadas isoladamente, e
+# misturar os artefatos impediria comparar os dois métodos — que é
+# exatamente o ponto da fase.
+LADDER_DYNAMIC_PROBE_DIRNAME = "ladder-dynamic-surface"
+
+# Fase L1, probe 18 — canal `Extender`/providers/descriptors. Terceiro
+# diretório próprio pelo mesmo motivo dos anteriores: são canais distintos e
+# misturar os artefatos impediria comparar os métodos.
+LADDER_EXTENDER_PROBE_DIRNAME = "ladder-extender-probe"
+
+# Fase L1, probe 19 — assinatura de `export_xml`, SEM invocação.
+PLCOPEN_SIGNATURE_PROBE_DIRNAME = "plcopen-signature-probe"
+
+# Fase L1, exportação controlada — PRIMEIRA operação que escreve.
+PLCOPEN_EXPORT_DIRNAME = "plcopen-export"
+PLCOPEN_EXPORT_ROOT_DIRNAME = "export-root"
+
+PLCOPEN_EXPORT_REQUIRED_FILENAMES = (
+    "invocation.json",
+    "filesystem-before.json",
+    "filesystem-after.json",
+    "created-artifacts.json",
+    "diagnostics.json",
+    "safety-declaration.json",
+    "checksums.sha256",
+    "report.md",
+    # Registra QUEM criou o export-root e em que ponto do ciclo de vida —
+    # o artefato arquivado não pode depender de memória.
+    "export-root-preparation.json",
+    # docs/19-contratos-de-execucao.md, seção 4 — a exportação passou a
+    # arquivar a identidade do alvo em artefato próprio e checksummado,
+    # igual às quatro operações read-only.
+    "target-identity.json",
+)
+
+# Artefatos que passaram a ser obrigatórios DEPOIS que algumas runs já
+# tinham sido arquivadas. Ausência em uma run NOVA continua sendo erro (o
+# nome permanece em `PLCOPEN_EXPORT_REQUIRED_FILENAMES`, acima) — mas a
+# ausência numa REVISÃO de run arquivada (`host_validation_revision.py`) é
+# só aviso: a run é legitimamente anterior à mudança que introduziu o
+# artefato, e não pode ser corrigida retroativamente sem refazer a
+# aquisição (proibido — ver docstring de `host_validation_revision.py`).
+PLCOPEN_EXPORT_FILENAMES_INTRODUCED_LATER = (
+    "target-identity.json",
+)
+
+# A declaração da exportação tem schema PRÓPRIO: aqui a escrita é esperada,
+# então reusar `LADDER_PROBE_SAFETY_DECLARATION_KEYS` (que exige tudo False)
+# reprovaria uma execução correta. Honestidade tem forma diferente conforme
+# o que a operação faz.
+PLCOPEN_EXPORT_SAFETY_TRUE_KEYS = ("export_xml_called", "filesystem_output_written")
+PLCOPEN_EXPORT_SAFETY_FALSE_KEYS = (
+    "project_save_called", "project_build_called", "text_document_write_called",
+    "import_called", "online_operation", "download_called", "force_called",
+)
+
+PLCOPEN_SIGNATURE_PROBE_REQUIRED_FILENAMES = (
+    "manifest.json",
+    "target-identity.json",
+    "export-xml-overloads.json",
+    # Escopo Application em arquivo próprio: a matriz de decisão da primeira
+    # exportação depende de saber, por escopo, se há sobrecarga invocável.
+    "active-application-overloads.json",
+    "import-xml-overloads.json",
+    "export-scope.json",
+    "export-reporter-type.json",
+    "conflict-resolve-enum.json",
+    "diagnostics.json",
+    "safety-declaration.json",
+    "checksums.sha256",
+    "report.md",
+)
+
+LADDER_EXTENDER_PROBE_REQUIRED_FILENAMES = (
+    "manifest.json",
+    "target-identity.json",
+    "extender-member.json",
+    "extender-runtime-type.json",
+    "extender-interfaces.json",
+    "extender-properties.json",
+    "extender-methods.json",
+    "extension-items.json",
+    "extension-item-types.json",
+    # Decide se o canal foi validado: sem ele não há veredito verificável.
+    "known-control-discovery.json",
+    "ladder-candidate-members.json",
+    "diagnostics.json",
+    "safety-declaration.json",
+    "checksums.sha256",
+    "report.md",
+)
+
+LADDER_DYNAMIC_PROBE_REQUIRED_FILENAMES = (
+    "manifest.json",
+    "target-identity.json",
+    "clr-members.json",
+    "dynamic-dir-members.json",
+    "dynamic-only-members.json",
+    "shared-members.json",
+    "whitelist-hasattr-results.json",
+    "safe-getter-results.json",
+    "ladder-candidate-members.json",
+    # O artefato que decide se a fase avança: sem ele não há como saber se a
+    # superfície dinâmica foi validada pelo controle `textual_declaration`.
+    "control-validation.json",
+    "diagnostics.json",
+    "safety-declaration.json",
+    "checksums.sha256",
+    "report.md",
+)
+
 LADDER_PROBE_REQUIRED_FILENAMES = (
     "manifest.json",
     "target-identity.json",
@@ -83,6 +196,68 @@ LADDER_PROBE_SAFETY_DECLARATION_KEYS = (
     "force_called",
     "project_modified",
 )
+
+
+def check_plcopen_export_safety_declaration(export_dir: Path) -> list[str]:
+    """A declaração da exportação é a única do projeto em que campos `True`
+    são esperados. Verifica os dois lados: o que DEVE ser verdadeiro (houve
+    chamada e houve escrita) e o que NÃO pode ser (save/build/import/online/
+    download/force). Uma declaração toda `False` aqui seria tão errada quanto
+    uma declaração `True` nos probes read-only."""
+    path = Path(export_dir) / "safety-declaration.json"
+    if not path.is_file():
+        return [f"safety-declaration.json ausente em {export_dir.name}/"]
+    try:
+        declaration = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        return [f"safety-declaration.json inválida: {exc}"]
+
+    problems: list[str] = []
+    if "write_called" in declaration:
+        problems.append(
+            "safety-declaration usa `write_called` genérico — proibido nesta "
+            "operação: um XML É escrito, e a chave sugeriria o contrário.")
+    for key in PLCOPEN_EXPORT_SAFETY_FALSE_KEYS:
+        if declaration.get(key) is not False:
+            problems.append(
+                f"safety-declaration.{key} deveria ser False (recebido: "
+                f"{declaration.get(key)!r})")
+    if declaration.get("export_xml_call_count") not in (0, 1):
+        problems.append(
+            "safety-declaration.export_xml_call_count deve ser 0 ou 1 (uma "
+            f"execução, uma invocação) — recebido: "
+            f"{declaration.get('export_xml_call_count')!r}")
+    scope = declaration.get("filesystem_output_scope")
+    if declaration.get("filesystem_output_written") is True and scope != (
+            "authorized_disposable_export_root"):
+        problems.append(
+            f"escrita declarada fora do escopo autorizado: {scope!r}")
+    return problems
+
+
+def check_no_output_escaped_export_root(export_dir: Path) -> list[str]:
+    """`created-artifacts.json` só pode listar caminhos RELATIVOS que
+    permaneçam dentro de `export-root`. Um caminho absoluto ou com `..` seria
+    saída escapada — a falha operacional `output_escaped_export_root`."""
+    path = Path(export_dir) / "created-artifacts.json"
+    if not path.is_file():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        return [f"created-artifacts.json inválida: {exc}"]
+
+    entries = payload.get("entries", payload) if isinstance(payload, dict) else payload
+    problems: list[str] = []
+    for entry in entries or []:
+        rel = (entry or {}).get("relative_path") or ""
+        normalized = rel.replace("\\", "/")
+        if (normalized.startswith("/") or ".." in normalized.split("/")
+                or (len(rel) > 1 and rel[1] == ":")):
+            problems.append(
+                f"output_escaped_export_root: entrada fora do diretório "
+                f"autorizado: {rel!r}")
+    return problems
 
 
 def _sha256_file(path: Path) -> str:
@@ -236,12 +411,24 @@ def validate_output_artifacts(
     output_dir: Path,
     operations: dict | None = None,
     extra_required_filenames: tuple[str, ...] = (),
+    *,
+    archived_revision: bool = False,
 ) -> ArtifactValidationResult:
     """Orquestra as checagens desta módulo em um único
     `ArtifactValidationResult`. `operations` é aceito para uso futuro por
     chamadores que conheçam nomes de artefato por operação (ver docstring
     do módulo); hoje só é usado para registrar nas observações quais
-    operações estavam habilitadas."""
+    operações estavam habilitadas.
+
+    `archived_revision`: `True` quando o chamador é
+    `host_validation_revision.revise_run()` — revisão host-side de uma run
+    JÁ arquivada, nunca uma execução nova. Nesse modo, a ausência de um
+    artefato listado em `PLCOPEN_EXPORT_FILENAMES_INTRODUCED_LATER` (hoje só
+    `target-identity.json`) não vira erro: vira aviso, porque a run pode ser
+    legitimamente anterior à mudança que passou a exigi-lo, e não pode ser
+    corrigida retroativamente sem refazer a aquisição (proibido). Para uma
+    run NOVA (`archived_revision=False`, o padrão — usado por
+    `supervised_run.py`), a ausência continua erro, sem exceção."""
     output_dir = Path(output_dir)
     errors: list[str] = []
     warnings: list[str] = []
@@ -292,6 +479,89 @@ def validate_output_artifacts(
             check_ladder_probe_safety_declaration(ladder_dir))
         if ladder_safety_errors:
             errors.extend(ladder_safety_errors)
+
+    # Fase L1, probe 17: mesma exigência, diretório próprio. A declaração de
+    # segurança é conferida pela MESMA função — o probe 17 grava as mesmas 10
+    # chaves, e uma segunda verificação paralela poderia divergir em silêncio.
+    if operations and operations.get("probe_ladder_dynamic_surface"):
+        dynamic_dir = output_dir / LADDER_DYNAMIC_PROBE_DIRNAME
+        for filename in LADDER_DYNAMIC_PROBE_REQUIRED_FILENAMES:
+            candidate = dynamic_dir / filename
+            rel = f"{LADDER_DYNAMIC_PROBE_DIRNAME}/{filename}"
+            if candidate.is_file():
+                checked_files.append(rel)
+            else:
+                errors.append(
+                    "artefato esperado ausente em "
+                    f"output/{LADDER_DYNAMIC_PROBE_DIRNAME}/: {filename}")
+
+        _dynamic_safety_declaration, dynamic_safety_errors = (
+            check_ladder_probe_safety_declaration(dynamic_dir))
+        if dynamic_safety_errors:
+            errors.extend(dynamic_safety_errors)
+
+    # Fase L1, probe 18: mesma exigência, diretório próprio, MESMA função de
+    # verificação da declaração de segurança (as 10 chaves são idênticas —
+    # uma segunda verificação paralela poderia divergir em silêncio).
+    if operations and operations.get("probe_ladder_extender_surface"):
+        extender_dir = output_dir / LADDER_EXTENDER_PROBE_DIRNAME
+        for filename in LADDER_EXTENDER_PROBE_REQUIRED_FILENAMES:
+            candidate = extender_dir / filename
+            rel = f"{LADDER_EXTENDER_PROBE_DIRNAME}/{filename}"
+            if candidate.is_file():
+                checked_files.append(rel)
+            else:
+                errors.append(
+                    "artefato esperado ausente em "
+                    f"output/{LADDER_EXTENDER_PROBE_DIRNAME}/: {filename}")
+
+        _extender_safety_declaration, extender_safety_errors = (
+            check_ladder_probe_safety_declaration(extender_dir))
+        if extender_safety_errors:
+            errors.extend(extender_safety_errors)
+
+    # Fase L1, probe 19: mesma exigência, diretório próprio. A declaração de
+    # segurança continua com as 10 chaves TODAS False — esta fatia não
+    # escreve XML; a mudança de perfil vem na fatia de exportação.
+    if operations and operations.get("probe_plcopen_export_signature"):
+        signature_dir = output_dir / PLCOPEN_SIGNATURE_PROBE_DIRNAME
+        for filename in PLCOPEN_SIGNATURE_PROBE_REQUIRED_FILENAMES:
+            candidate = signature_dir / filename
+            rel = f"{PLCOPEN_SIGNATURE_PROBE_DIRNAME}/{filename}"
+            if candidate.is_file():
+                checked_files.append(rel)
+            else:
+                errors.append(
+                    "artefato esperado ausente em "
+                    f"output/{PLCOPEN_SIGNATURE_PROBE_DIRNAME}/: {filename}")
+
+        _signature_safety, signature_safety_errors = (
+            check_ladder_probe_safety_declaration(signature_dir))
+        if signature_safety_errors:
+            errors.extend(signature_safety_errors)
+
+    if operations and operations.get("export_plcopen_xml"):
+        export_dir = output_dir / PLCOPEN_EXPORT_DIRNAME
+        for filename in PLCOPEN_EXPORT_REQUIRED_FILENAMES:
+            candidate = export_dir / filename
+            rel = f"{PLCOPEN_EXPORT_DIRNAME}/{filename}"
+            if candidate.is_file():
+                checked_files.append(rel)
+            elif archived_revision and filename in PLCOPEN_EXPORT_FILENAMES_INTRODUCED_LATER:
+                # Run arquivada ANTES de o artefato passar a ser exigido. Não
+                # pode ser corrigida retroativamente sem refazer a aquisição, e
+                # refazer é proibido — então vira aviso nomeado, nunca erro.
+                # Numa run NOVA este mesmo nome continua caindo no `else`.
+                warnings.append(
+                    f"artefato ausente em output/{PLCOPEN_EXPORT_DIRNAME}/: {filename} — "
+                    "introduzido depois desta run ser arquivada; ausência esperada em "
+                    "revisão histórica, não reprova.")
+            else:
+                errors.append(
+                    f"artefato esperado ausente em output/{PLCOPEN_EXPORT_DIRNAME}/: {filename}")
+
+        errors.extend(check_plcopen_export_safety_declaration(export_dir))
+        errors.extend(check_no_output_escaped_export_root(export_dir))
 
     ok = len(errors) == 0
     return ArtifactValidationResult(

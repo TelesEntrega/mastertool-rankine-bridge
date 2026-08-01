@@ -1,7 +1,7 @@
 # MasterTool AI Bridge — Contexto consolidado, decisões e roadmap
 
 **Data de consolidação:** 24/07/2026  
-**Projeto:** `mastertool-ai-bridge`  
+**Projeto:** `mastertool-rankine-bridge`  
 **Ambiente-alvo:** MasterTool IEC XE 3.63 / MT8500, baseado em CODESYS  
 **Projeto PLC usado nas validações:** cópia de `ExemploPlanta V1.0.project`  
 **Estado atual:** aquisição estrutural e exportação textual somente leitura concluídas e validadas em runtime real; StaticProjectIndexer completo (parser → resolução → consultas → linguagem natural controlada → API Python → servidor MCP) — ver seção 25  
@@ -13,7 +13,7 @@
 
 ## 1. Objetivo do projeto
 
-O `mastertool-ai-bridge` está sendo desenvolvido para criar uma ponte segura entre projetos do MasterTool IEC XE e ferramentas externas em Python 3, Git e, futuramente, assistência por IA/MCP.
+O `mastertool-rankine-bridge` está sendo desenvolvido para criar uma ponte segura entre projetos do MasterTool IEC XE e ferramentas externas em Python 3, Git e, futuramente, assistência por IA/MCP.
 
 A visão de longo prazo é permitir:
 
@@ -1437,7 +1437,7 @@ MasterTool, que só o usuário pode disparar. Trabalho autônomo continua
 dentro desse limite: análise offline, ferramentas/scripts preparados
 (nunca executados por mim dentro do MasterTool), testes, documentação —
 sempre com a mesma disciplina de verificação independente já usada em
-toda a trilha ST (ver [[mastertool-ai-bridge-autonomous-gates]]).
+toda a trilha ST (ver [[mastertool-rankine-bridge-autonomous-gates]]).
 
 **Novas APIs confirmadas:** nenhuma ainda — reconhecimento desta entrada
 foi inteiramente offline, sobre dados já capturados.

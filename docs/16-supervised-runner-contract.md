@@ -25,7 +25,7 @@
 ## 1. Diretório de execução (autossuficiente)
 
 ```text
-C:\mastertool-ai-bridge-runs\<run-id>\
+C:\mastertool-bridge-runs\<run-id>\
 ├── bootstrap.py            # gerado pelo host; é o alvo do --runscript
 ├── run-config.json         # gerado pelo host; entrada do runner interno
 ├── status.json             # escrito pelo runner interno (estado corrente)
@@ -45,8 +45,8 @@ C:\mastertool-ai-bridge-runs\<run-id>\
   "run_id": "2026-07-24_17-30-00",
   "mode": "supervised_snapshot",
 
-  "repo_root": "C:\\...\\mastertool-ai-bridge",
-  "mastertool_scripts_dir": "C:\\...\\mastertool-ai-bridge\\scripts\\mastertool",
+  "repo_root": "C:\\...\\mastertool-rankine-bridge",
+  "mastertool_scripts_dir": "C:\\...\\mastertool-rankine-bridge\\scripts\\mastertool",
 
   "expected_project_path": "C:\\...\\_descartavel\\ExemploPlanta V1.0 COPIA.project",
   "expected_project_sha256": "E278D1C2...688C4E",
@@ -55,9 +55,9 @@ C:\mastertool-ai-bridge-runs\<run-id>\
   "expected_application_guid": "00000000-0000-0000-0000-000000000001",
   "expected_application_type_guid": "639b491f-5557-464c-af91-1471bac9f549",
 
-  "run_dir": "C:\\mastertool-ai-bridge-runs\\2026-07-24_17-30-00",
-  "output_dir": "C:\\mastertool-ai-bridge-runs\\2026-07-24_17-30-00\\output",
-  "allowed_output_root": "C:\\mastertool-ai-bridge-runs",
+  "run_dir": "C:\\mastertool-bridge-runs\\2026-07-24_17-30-00",
+  "output_dir": "C:\\mastertool-bridge-runs\\2026-07-24_17-30-00\\output",
+  "allowed_output_root": "C:\\mastertool-bridge-runs",
 
   "operations": {
     "scan_project_tree": true,
@@ -168,6 +168,397 @@ de `run_config.py`:
 Misturá-los tornaria impossível saber, olhando um `run-config.json`
 arquivado, qual capacidade foi de fato autorizada naquela execução.
 
+### Operação `probe_ladder_dynamic_surface` (Fase L1, probe 17)
+
+```json
+"operations": {
+  "probe_ladder_dynamic_surface": true
+}
+```
+
+**Independente de `probe_ladder_surface`, e deliberadamente.** As duas
+sondam o mesmo objeto por métodos diferentes — o probe 16 por reflexão CLR
+(`GetType().GetProperties()/GetMethods()`), o probe 17 pela superfície
+dinâmica do IronPython (`dir()` + `hasattr()` controlado). O probe 17 existe
+porque a reflexão pura **não vê** as extensões que o ScriptEngine anexa em
+runtime: `textual_declaration` é funcional (o `ReadOnlyTextExporter` o usa)
+e mesmo assim nunca apareceu na enumeração do probe 16.
+
+Comparar os dois métodos é o objetivo da fase, então cada um precisa poder
+ser ligado isoladamente. Uma flag compartilhada tornaria impossível
+reproduzir só uma das sondagens a partir de um `run-config.json` arquivado.
+
+Saída em `output/ladder-dynamic-surface/` (diretório próprio, mesmo motivo).
+
+**Critério de validade.** O membro `textual_declaration` é o controle: se a
+superfície dinâmica não o reencontrar, o resultado é
+`dynamic_probe_inconclusive` e **nenhuma conclusão sobre ausência de API
+Ladder é permitida** — um método que não enxerga o membro conhecido não
+pode ser usado para afirmar que outro membro não existe. O artefato
+`control-validation.json` registra o veredito, e o runner interno imprime
+`[ATENCAO]` explícito quando ele é `false`, para que um resultado
+inconclusivo nunca se pareça com sucesso na aba de Mensagens.
+
+### Seção `ladder_dynamic_probe` (obrigatória quando `probe_ladder_dynamic_surface` é `true`)
+
+Mesmos quatro campos da seção `ladder_probe`, mesma regra fail-closed nas
+duas direções (operação ligada sem seção reprova; seção presente com
+operação desligada também reprova).
+
+```json
+"ladder_dynamic_probe": {
+  "target_node_id": "application/9/4",
+  "expected_name": "...",
+  "expected_guid": "...",
+  "expected_type_guid": "..."
+}
+```
+
+**Sem default de identidade no modo supervisionado.** O wrapper
+`run_supervised_snapshot.ps1` traz os quatro parâmetros
+`-LadderDynamic*` **vazios**, ao contrário dos `-Ladder*` do probe 16: um
+default preenchido transformaria "esqueci de informar o alvo" numa execução
+silenciosa contra o alvo de outra pessoa. Defaults embutidos permanecem
+apenas no modo standalone do probe, para desenvolvimento.
+
+### Seção `runtime` de `run-report.json` (procedência)
+
+```json
+"runtime": {
+  "platform": "cli",
+  "runtime_family": "IronPython",
+  "version_info": [2, 7, 12],
+  "provenance_confirmed": true
+}
+```
+
+O host valida a procedência lendo exatamente estas chaves. **Ela não era
+emitida** até 2026-07-28: `_build_run_report()` produzia só os 6 campos da
+declaração mais `limits_used`, e o host, não encontrando `runtime`,
+reprovava toda execução. Consequência: desde a Etapa B, toda run
+supervisionada real terminou `final_state=failed` por um motivo sem relação
+com a aquisição — e uma checagem que sempre falha treina o operador a
+ignorar o status, que é o pior resultado possível para uma guarda.
+
+Os valores vêm de `_check_provenance()`, **nunca recalculados** — uma
+segunda detecção divergiria da primeira, e a divergência apareceria como
+dois vereditos sobre a mesma execução. São **preservados mesmo quando a
+procedência reprova**: o host precisa distinguir "rodou em CPython 3 fora do
+MasterTool" de "campo ausente". A seção é emitida também nos caminhos de
+abort controlado, pelo mesmo motivo.
+
+Códigos de recusa do host, deliberadamente distintos:
+
+| `reason_code` | Significado |
+|---|---|
+| `runtime_provenance_missing` | seção ausente — **ausência de prova**, não prova de execução externa |
+| `runtime_provenance_mismatch` | valores presentes e errados — a ameaça que a checagem existe para pegar |
+
+Campo ausente continua **reprovando** (fail-closed): a correção nunca
+converte ausência em sucesso.
+
+### Operação `probe_ladder_extender_surface` (Fase L1, probe 18)
+
+Terceiro canal: `Extender`/`IExtendedObject` — providers e descriptors. O
+membro CLR `Extender` estava entre os 29 que a reflexão do probe 16
+enxergou; a hipótese é que ele explique a **origem** dos membros dinâmicos
+que nem a reflexão nem o `dir()` alcançaram.
+
+**Critério de validade**: reencontrar `textual_declaration` por um caminho
+estrutural que passe pelo `Extender`
+(`proxy → Extender → provider/descriptor → membro`), registrado em
+`known-control-discovery.json` como `discovery_path`. Conseguir refletir
+sobre o `Extender` **não** valida o canal, e repetir
+`hasattr(proxy, "textual_declaration")` também não — isso o probe 17 já
+provou e não demonstra origem.
+
+`extender_channel_validated` exige as três condições simultâneas
+(`extender_accessible`, `extension_channel_enumerable`,
+`control_provider_found`). Casos:
+
+- **E1**: canal validado, 0 candidatos → conclusão limitada ao canal
+  examinado, nunca ausência global de API Ladder;
+- **E2**: canal validado + candidatos → abre o próximo probe;
+- **E3**: `Extender` acessível mas canal não validado → `inconclusive`;
+- **E4**: `Extender` inacessível → `inconclusive`.
+
+**E3/E4 são execuções corretas que não confirmaram o canal.** O status
+operacional segue `completed`; o resultado semântico é que é inconclusivo.
+O runner **não** converte E3/E4 em `failed` — confundir os dois faria uma
+investigação bem executada parecer falha de infraestrutura. O runner imprime
+`[ATENCAO]` explícito para o operador não ler como sucesso.
+
+Saída em `output/ladder-extender-probe/`. Seção de config:
+`ladder_extender_probe`, mesmos quatro campos e mesma regra fail-closed nas
+duas direções.
+
+### Operação `probe_plcopen_export_signature` (Fase L1, probe 19)
+
+Reflete a assinatura **completa** de `export_xml` — optionality, defaults,
+`out`/`ref`, position — **sem invocá-lo**. Gate próprio: comprovar a
+assinatura sem executar o método.
+
+Seção `plcopen_export_signature_probe`: os mesmos quatro campos de
+identidade **mais** `inspect_active_application` (booleano estrito; ausente
+vale `true`). Não reutiliza `LadderProbeConfig`, que valida exatamente
+quatro strings — um quinto campo aceito e silenciosamente ignorado seria o
+mesmo defeito que `KNOWN_OPERATION_KEYS` existe para impedir.
+
+**Dois escopos, mantidos separados**: `export-xml-overloads.json` (POU) e
+`active-application-overloads.json` (Application). Cada um classificado por
+si — um `S1` num escopo **não** promove o outro. Fundir as listas esconderia
+de qual escopo veio a sobrecarga segura, que é justamente o que decide a
+primeira exportação.
+
+Com `inspect_active_application=false`, o escopo registra `attempted=false`
+e `found=null` — **nunca** `found=false`, que significaria "procurei e não
+achei". Confundir "não procurei" com "não existe" é o erro que já custou
+duas reclassificações nesta trilha.
+
+`S2`/`S3` são execuções corretas que não comprovaram sobrecarga invocável:
+resultado semântico inconclusivo, **não** falha operacional. `final_state`
+segue `completed`; a exportação permanece não autorizada.
+
+Esta operação **não escreve nada**: a `safety-declaration` mantém as 10
+chaves todas `false`. A mudança de perfil de segurança (escrita em
+diretório descartável) pertence à fatia seguinte, e antecipá-la aqui
+tornaria a declaração falsa.
+
+### Operação `export_plcopen_xml` (Fase L1, exportação controlada)
+
+**Primeira operação do projeto que ESCREVE.** Escrita permitida: apenas
+criação dentro do diretório descartável da run. Escrita proibida: projeto,
+`.project`, configuração, hardware, objetos da árvore.
+
+#### Guarda de diretório, não de extensão
+
+O contrato anterior exigia que `stPath` terminasse em `.xml`. **Isso foi
+substituído**, e a mudança veio de dado novo: a execução real do probe 19
+confirmou a sobrecarga de 4 argumentos, mas a semântica de `stPath` —
+arquivo ou diretório — permaneceu desconhecida. O nome é genérico e a
+presença de `bExportFolderStructure` sugere que a API pode produzir árvore.
+Exigir `.xml` seria adivinhar.
+
+Regra vigente:
+
+```text
+stPath precisa apontar para um alvo INEXISTENTE,
+dentro de um diretório descartável VAZIO e autorizado.
+```
+
+O **runner interno** cria `output/plcopen-export/export-root/` **depois** de
+`output_dir` passar na guarda de "vazio", e o **probe 20** apenas confere que
+existe, está vazio, é caminho autorizado e não é reparse point.
+
+A criação era do host, antes do lançamento — e isso **quebrou** na run
+`2026-07-28_11-37-05`: o runner interno exige `output_dir` vazio ao iniciar
+(guarda desde a Etapa B, contra sobrescrever run anterior), então qualquer
+coisa pré-criada sob `output/` abortava toda a execução. Duas invariantes
+corretas colidiam.
+
+A correção move a criação no ciclo de vida sem enfraquecer guarda nenhuma. O
+diretório passa a nascer vazio **por construção** — garantia mais forte que
+criá-lo antes e conferir depois. A separação "quem cria não é quem valida"
+continua: runner cria, probe valida. `export-root-preparation.json` registra
+quem criou e em que ponto, para o artefato arquivado não depender de
+memória.
+
+Isso cobre as duas semânticas possíveis e transforma a própria exportação em
+experimento controlado sobre `stPath`.
+
+#### A única chamada autorizada
+
+```python
+target.export_xml(st_path, False, False, False)
+```
+
+Pelo membro conhecido, com quatro argumentos explícitos — **nunca**
+`MethodInfo.Invoke()`. Uma execução, uma invocação. Os três booleanos
+existem na config para **auditoria** (um `run-config.json` arquivado precisa
+dizer com que argumentos a exportação correu), não para abrir matriz de
+execução: qualquer valor diferente de `false` reprova.
+
+#### `safety-declaration` com schema próprio
+
+Única declaração do projeto em que campos `true` são esperados:
+
+```json
+{"export_xml_called": true, "export_xml_call_count": 1,
+ "filesystem_output_written": true,
+ "filesystem_output_scope": "authorized_disposable_export_root",
+ "project_save_called": false, "project_build_called": false,
+ "text_document_write_called": false, "import_called": false,
+ "online_operation": false, "download_called": false, "force_called": false}
+```
+
+`write_called: false` é **proibido** aqui — seria falso, um XML é escrito. A
+validação host-side rejeita a chave.
+
+#### `target-identity.json` — identidade arquivada
+
+A exportação sempre validou a identidade do alvo (aborta com
+`target_identity_mismatch`), mas até a consolidação era a única das cinco
+operações que não a **arquivava** em artefato próprio: a informação vivia no
+`report.md` e no resultado, fora do `checksums.sha256`. A operação de maior
+risco tinha a rastreabilidade de alvo mais fraca
+(`docs/19-contratos-de-execucao.md`, seção 4).
+
+```json
+{"schema_version": 1, "target_node_id": "application/<i>/<j>",
+ "name": "<nome do alvo>", "guid": "<guid>", "type_guid": "<type guid>",
+ "is_folder": false, "identity_confirmed": true,
+ "identity_check_reached": true, "mismatches": []}
+```
+
+`schema_version` é **inteiro**, nunca a string `"1.0"`.
+
+Escrito em **três pontos**, sempre a partir do `result` e portanto idempotente
+por construção — sem cache nem flag de "já escrevi":
+
+1. logo após a Guarda 4, quando a identidade **confere** — antes da Guarda 5 e
+   muito antes da invocação, para que o artefato sobreviva mesmo se o processo
+   morrer durante `export_xml`;
+2. logo após a Guarda 4, quando a identidade **diverge** — antes do `_abort`,
+   com `identity_confirmed: false` e `mismatches` nomeando os campos;
+3. dentro de `_write_artifacts()`, cobrindo o aborto **anterior** à Guarda 4.
+
+`identity_check_reached` distingue duas situações que de outro modo ficariam
+idênticas: *o alvo não confere* e *nunca chegamos a olhar o alvo*. Ambas dão
+`identity_confirmed: false`; só o segundo campo separa as duas.
+
+Não duplica assinatura nem argumentos de `export_xml` — isso é papel de
+`invocation.json`. Não depende de `report.md`.
+
+**Runs arquivadas antes desta mudança:** a ausência do arquivo é **aviso**, não
+erro, quando a validação roda em modo revisão histórica
+(`validate_output_artifacts(..., archived_revision=True)`, usado por
+`host_validation_revision.revise_run()`). Numa run **nova** a ausência continua
+reprovando. Os nomes com esse tratamento estão em
+`PLCOPEN_EXPORT_FILENAMES_INTRODUCED_LATER` — o modo histórico perdoa só esses,
+nunca um artefato que já era exigido. Runs arquivadas não são reescritas: estão
+cobertas por checksums e refazer a aquisição é proibido.
+
+#### Análise offline, depois do MasterTool fechar
+
+`xml-files.json`, `xml-structure-inventory.json` e `target-object-match.json`
+são produzidos pelo **host**, em CPython, com os bytes já congelados — e
+**somente** quando a aquisição de fato ocorreu. Precondições, todas
+obrigatórias:
+
+```text
+internal_status.state == completed
+invocation.json existe e export_xml_called == true
+created-artifacts.json existe
+safety-declaration.json existe
+```
+
+Faltando qualquer uma:
+
+```text
+offline_analysis: {attempted: false, skipped: true,
+                   reason: "acquisition_not_completed"}
+```
+
+e **nenhum** dos quatro artefatos é gerado. Rodar a análise sobre um
+`export-root` que nunca foi usado produz arquivos que *parecem* resultado e
+não são — foi o que aconteceu na run `2026-07-28_11-37-05`. "Não houve o que
+analisar" e "analisei e não achei nada" são conclusões opostas.
+Interpretar dentro do IronPython decidiria o formato no mesmo processo que o
+produziu, e erro de parsing viraria erro dentro do MasterTool. Os arquivos
+exportados permanecem byte a byte intactos.
+
+Detecção por **bytes** (não por extensão — `stPath` podia produzir nome sem
+`.xml`) e por **URI de namespace** (não por prefixo, que é escolha do
+documento).
+
+#### Estado operacional × resultado científico
+
+| `export_result` | significado | `final_state` |
+|---|---|---|
+| `P1_graphical_body_present` | XML com corpo gráfico | `completed` |
+| `P2_declaration_only` | PLCopen válido sem corpo gráfico | `completed` |
+| `P3_no_output` | nada produzido | `completed` |
+| `P4_unrecognized_format` | formato não reconhecido | `completed` |
+
+Só produzem `failed`: `export_invocation_failed`, `project_copy_modified`,
+`runtime_provenance_mismatch`, `target_identity_mismatch`,
+`artifact_validation_failed`, `output_escaped_export_root`.
+
+### Detecção de MasterTool aberto — e o seam de ensaio
+
+O wrapper bloqueia antes de montar qualquer comando quando há instância do
+MasterTool aberta (`Get-Process -Name 'MT8500*'` → `[BLOQUEADO] Ha
+instancia(s) do MasterTool`, `exit 2`).
+
+Essa guarda tornava os testes do wrapper dependentes do estado da máquina:
+com o MasterTool aberto, três testes pulavam e a cobertura caía em silêncio.
+Desde a consolidação existe um seam **restrito ao modo de ensaio**:
+
+| | |
+|---|---|
+| Variável | `MASTERTOOL_BRIDGE_FAKE_PROCESS_LIST` |
+| Formato | lista separada por `;`, cada item `<nome-da-imagem>:<pid>` |
+| String vazia | nenhum processo aberto |
+| Exemplo | `MT8500.exe:4242` |
+| Malformada | **reprova fail-closed** (`exit 2`), nunca vira "nada aberto" |
+
+**A variável só é consultada quando `-Execute` está ausente.** A negação está
+embutida na própria expressão que escolhe a fonte da lista, então com
+`-Execute` o ramo simulado é *estruturalmente inalcançável* — não existe
+combinação de argumentos que faça uma lista simulada valer numa execução
+real, e a checagem via `Get-Process` sempre governa.
+
+A escolha por variável de ambiente, em vez de um parâmetro
+`-SimulateProcessList`, é deliberada: um parâmetro criaria a combinação
+`-Execute` + simulação, cuja rejeição só poderia ser testada executando o
+caminho que lança o MasterTool — e lançar processo GUI contra arquivos reais
+exige supervisão visual humana. Aqui não há caminho perigoso a testar porque
+não há caminho.
+
+O seam espelha `process_lister` de
+`src/mastertool_bridge/automation/supervised_run.py`, que já resolvia o mesmo
+problema do lado Python. Entrada inválida reprova nos dois: silêncio sobre
+entrada malformada é como uma guarda começa a mentir.
+
+### Exclusão mútua das operações de investigação
+
+`probe_ladder_surface`, `probe_ladder_dynamic_surface`,
+`probe_ladder_extender_surface`, `probe_plcopen_export_signature` e
+`export_plcopen_xml` **não podem ser ligados na mesma run**. A lista é literal e explícita, não
+abstraída — mais auditável nesta fase.
+Cada um investiga um canal distinto e carrega gate de validade próprio;
+combiná-los produziria vereditos concorrentes sob um único `status` —
+ambiguidade justamente no registro que serve de auditoria. A recusa é
+aplicada em três camadas independentes (wrapper PowerShell, CLI e
+`RunConfig`, além do runner interno), cada uma falhando no ponto mais barato
+que alcança.
+
+### Estado `probing_ladder_extender_surface`
+
+Estado dedicado pelo mesmo motivo do probe 17: gate próprio. Cada estado
+marca uma fronteira operacional real, o que permite identificar onde a
+execução parou, distinguir timeout de falha semântica e manter artefatos
+históricos autoexplicativos:
+
+| Estado | Canal investigado |
+|---|---|
+| `scanning` (probe 16) | reflexão CLR do proxy |
+| `probing_ladder_dynamic_surface` | `dir()` e acesso dinâmico por nome |
+| `probing_ladder_extender_surface` | `Extender`, providers e descriptors |
+
+Um estado genérico (`probing_ladder_discovery` com subestado) só faria
+sentido se houvesse um orquestrador único executando os três como operação
+composta — abstração deliberadamente **não** introduzida agora, já que os
+probes são operações independentes.
+
+### Estado `probing_ladder_dynamic_surface`
+
+O probe 16 reutilizou `scanning` por não haver estado dedicado. O probe 17
+ganhou o seu porque tem um **gate de validade próprio** cujo resultado
+decide se a Fase L1 avança; fundi-lo a `scanning` apagaria essa distinção no
+`status-history.jsonl`, que é o registro de auditoria da execução. O estado
+não é terminal — a execução segue para `validating`/`completed`.
+
 ### Seção `ladder_probe` (obrigatória quando `probe_ladder_surface` é `true`)
 
 ```json
@@ -232,6 +623,10 @@ provenance_validated
 project_identity_validated
 scanning
 exporting
+probing_ladder_dynamic_surface
+probing_ladder_extender_surface
+probing_plcopen_export_signature
+exporting_plcopen_xml
 validating
 completed
 failed              (terminal)
@@ -255,7 +650,7 @@ Formato de `status.json`:
 }
 ```
 
-### Escrita "atômica" — e por que ela não é atômica de verdade
+### Substituição de `status.json` via arquivo temporário
 
 Procedimento obrigatório:
 

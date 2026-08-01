@@ -1,26 +1,63 @@
 # mastertool-rankine-bridge
 
-Ponte segura entre o **MasterTool IEC XE 3.63** (Altus Nexto / NX3008) e ferramentas
-externas em Python 3: exportação estruturada, versionamento em Git, análise estática,
-documentação automática e — no futuro, sob aprovação humana — alteração controlada.
+Ponte entre o **MasterTool** (Altus) e ferramentas externas em Python 3, em duas
+metades que se sustentam:
 
-> **Estado atual: Fase 0/1 — somente leitura.**
-> Nenhum script deste repositório modifica projetos do MasterTool, realiza download,
-> entra em modo online ou toca o CLP. Importação está propositalmente desabilitada.
+- **Ler** — exportação estruturada, indexação semântica, análise estática e
+  versionamento em Git de projetos existentes (IEC XE 3.63/3.70).
+- **Escrever** — uma **fábrica de projetos** para o MasterTool X (MT9000
+  4.1.0.11): de uma especificação declarativa em JSON sai um projeto que
+  compila, sob um gate de escrita controlada que autoriza uma operação por vez.
+
+```text
+spec.json → planner (offline) → plano de autoria → executor → .project → build
+```
+
+> **Somente leitura continua sendo a base.** `READ_ONLY_PHASE = True` nunca é
+> desligado; a escrita acontece por uma **fase nomeada** cuja allowlist literal
+> autoriza operações uma a uma, sempre em cópia descartável. Nenhum script aqui
+> faz download, entra em modo online ou toca o CLP — e isso não é configurável.
+
+## O que a fábrica prova, e como
+
+Treze operações de autoria, cada uma **exercida contra o produto real** dentro
+de uma cadeia que persistiu (`save_as`) e compilou (`build`) — nunca declarada a
+partir da existência da API:
+
+| | |
+| --- | --- |
+| Objetos IEC | GVL, PROGRAM, FUNCTION, FUNCTION_BLOCK, DUT (STRUCT/ENUM) |
+| Estrutura | task, vínculo de programa, chamada idiomática, tempo de task |
+| Cadeia | texto, persistência, reabertura, compilação, verificação |
+
+Um projeto de máquina com 7 objetos de 5 famílias, gerado **duas vezes** sobre
+cópias novas: 0 erros, 0 avisos, 7 de 7 objetos verificados, conteúdo
+equivalente entre as duas gerações. Os registros de execução estão em
+`docs/37` a `docs/49`, um por marco — incluindo os que reprovaram.
+
+### A distinção que sustenta o resto
+
+`cataloged` (a API existe no catálogo) **≠** `field_proven` (a operação foi
+medida numa cadeia completa). O planner é *fail-closed* na segunda: ele recusa
+emitir plano executável com operação não provada, e a prova exige citar a
+execução que a produziu. Marcar sem medir seria declarar em vez de medir — e um
+teste que fazia exatamente isso foi o primeiro defeito que essa separação pegou.
 
 > **Nomes de projeto neste repositório são fictícios.** A ferramenta foi
 > desenvolvida e validada contra um projeto real de planta, que não é publicado.
 > Todo identificador de exemplo na documentação e nos testes (`ExemploPlanta`,
-> `FB_PISCA_EXEMPLO`, `VarEquipamentosExemplo`, GUIDs `00000000-...`) é um
-> substituto neutro, **não** uma API do MasterTool nem um valor a copiar. Os
-> nomes que pertencem à plataforma CODESYS/Altus — `Application`, `Device`,
-> `Plc Logic`, `MainPrg`, `SystemPOUs`, `Task Configuration` — foram mantidos
-> porque documentam o ambiente, não um projeto específico.
+> `TemplateExemplo v1`, `FB_PISCA_EXEMPLO`, `VarEquipamentosExemplo`, GUIDs
+> `00000000-...`) é um substituto neutro, **não** uma API do MasterTool nem um
+> valor a copiar. Os nomes que pertencem à plataforma CODESYS/Altus —
+> `Application`, `Device`, `Plc Logic`, `MainPrg`, `SystemPOUs`,
+> `Task Configuration`, `UserPrg` — foram mantidos porque documentam o
+> ambiente, não um projeto específico.
 >
 > Consequência prática: os `expected_*_guid` de configuração vêm como
 > placeholder. Isso é deliberado — os probes **falham fechado** até você
 > configurar a identidade do seu próprio projeto, em vez de carregar a
-> identidade de outra pessoa.
+> identidade de outra pessoa. Os SHA-256 citados nos registros de execução
+> referem-se ao projeto-base real e, portanto, a um arquivo que não está aqui.
 
 ## O que o projeto faz (hoje)
 
@@ -141,13 +178,3 @@ dependência externa.
 
 Comece por `docs/00-overview.md` e `docs/01-architecture.md`.
 Agentes de IA devem ler `AGENTS.md` antes de qualquer tarefa.
-
-## Licença
-
-Apache License 2.0 — ver `LICENSE`. Copyright 2026 Rankine Systems.
-
-O software é distribuído "COMO ESTÁ", sem garantias. Isto importa mais do que o
-usual aqui: a ferramenta lê projetos de automação industrial, e a análise que ela
-produz é **heurística e consultiva**. Nenhuma saída deste repositório deve ser
-tratada como verificação de segurança, nem substituir revisão humana, teste em
-ambiente controlado ou o CLP como autoridade final de intertravamento.

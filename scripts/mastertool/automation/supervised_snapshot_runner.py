@@ -34,12 +34,14 @@ from common import read_only_project_scanner as scanner_mod
 from common import read_only_text_exporter as exporter_mod
 
 
-def _load_ladder_probe_module(mastertool_scripts_dir):
-    """Carrega 'probes/16_probe_ladder_object_surface.py' como um modulo
-    Python de verdade, pelo CAMINHO -- o nome do arquivo comeca com digito
-    ('16_...'), entao `import probes.16_probe_ladder_object_surface` e
-    SyntaxError (nome de modulo Python nao pode comecar com digito). Usamos
-    Dois mecanismos, nesta ordem, porque nenhum funciona nos dois runtimes:
+def _load_ladder_probe_module(mastertool_scripts_dir, probe_filename=None,
+                              module_name=None):
+    """Carrega um probe (por exemplo, 'probes/16_probe_ladder_object_surface.py')
+    como um modulo Python de verdade, pelo CAMINHO -- o nome do arquivo
+    comeca com digito ('16_...'/'17_...'), entao
+    `import probes.16_probe_ladder_object_surface` e SyntaxError (nome de
+    modulo Python nao pode comecar com digito). Usamos dois mecanismos,
+    nesta ordem, porque nenhum funciona nos dois runtimes:
 
       1. `importlib.util.spec_from_file_location` -- caminho do CPython 3.
          Preferido quando existe.
@@ -53,9 +55,21 @@ def _load_ladder_probe_module(mastertool_scripts_dir):
     dois runtimes funcionando e sem aviso.
 
     Nenhum dos dois e dependencia nova: ambos sao biblioteca padrao do
-    respectivo runtime."""
-    probe_path = os.path.join(mastertool_scripts_dir, "probes", "16_probe_ladder_object_surface.py")
-    module_name = "mastertool_bridge_probe_16_ladder_object_surface"
+    respectivo runtime. `probe_filename` e `module_name` sao parametrizados
+    (generalizado a partir da versao original, hardcoded para o probe 16)
+    para que os probes 16 e 17 reutilizem a mesma funcao de carregamento sem
+    duplicar os dois mecanismos acima.
+
+    Os dois tem DEFAULT (o probe 16) em vez de serem obrigatorios: a
+    generalizacao nao pode quebrar chamadas de uma assinatura ja em uso.
+    Tornar os parametros exigidos transformaria uma extensao aditiva em
+    mudanca incompativel, e o unico sintoma seria um TypeError em quem ja
+    chamava a versao antiga."""
+    if probe_filename is None:
+        probe_filename = "16_probe_ladder_object_surface.py"
+    if module_name is None:
+        module_name = "mastertool_bridge_probe_16_ladder_object_surface"
+    probe_path = os.path.join(mastertool_scripts_dir, "probes", probe_filename)
 
     try:
         import importlib.util as _importlib_util
@@ -65,7 +79,7 @@ def _load_ladder_probe_module(mastertool_scripts_dir):
     if _importlib_util is not None and hasattr(_importlib_util, "spec_from_file_location"):
         spec = _importlib_util.spec_from_file_location(module_name, probe_path)
         if spec is None or spec.loader is None:
-            raise ImportError("nao foi possivel montar o spec do probe 16: %s" % probe_path)
+            raise ImportError("nao foi possivel montar o spec do probe: %s" % probe_path)
         module = _importlib_util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
@@ -118,7 +132,30 @@ def _check_provenance():
              "'IronPython' em sys.version=%r (irrelevante: este host devolve "
              "banner do produto), version_info[:2]=%r"
              % (sys.platform, ironpython, "IronPython" in sys.version, version_pair))
-    return ok, detail
+
+    # Terceiro retorno: os valores OBSERVADOS, num formato que o host consome
+    # direto (cli_probe_verify.check_provenance espera exatamente estas tres
+    # chaves sob 'runtime'). Existe porque o host validava a procedencia
+    # contra uma secao que o runner NUNCA emitia -- logo toda execucao
+    # supervisionada real terminava 'failed' por um motivo sem relacao com a
+    # aquisicao. Uma checagem que sempre falha treina o operador a ignorar o
+    # status, que e o pior resultado possivel para uma guarda de seguranca.
+    #
+    # Os valores sao PRESERVADOS mesmo quando a procedencia reprova: o host
+    # precisa saber o que foi observado para distinguir "rodou em CPython 3
+    # fora do MasterTool" de "campo ausente". Version_info vai como LISTA
+    # (JSON nao tem tupla) e completa, nao so o par.
+    try:
+        version_full = list(sys.version_info[:3])
+    except Exception:
+        version_full = None
+    runtime = {
+        "platform": sys.platform,
+        "runtime_family": "IronPython" if ironpython else "CPython",
+        "version_info": version_full,
+        "provenance_confirmed": ok,
+    }
+    return ok, detail, runtime
 
 
 def _normalize_path(path):
@@ -150,7 +187,7 @@ def _is_within(path, root):
     return norm_path.startswith(norm_root + os.sep)
 
 
-def _build_run_report(limits_used):
+def _build_run_report(limits_used, runtime=None):
     """Declaracao final (contrato, secao 7) + 'limits_used' (achado do
     revisor, 2026-07-24: sem registrar os limites de travessia efetivamente
     usados, uma execucao passada nao e auditavel -- nao daria para saber
@@ -169,6 +206,11 @@ def _build_run_report(limits_used):
         "force_called": False,
         "original_project_touched": False,
         "limits_used": limits_used,
+        # Procedencia OBSERVADA, vinda de _check_provenance() -- nunca
+        # recalculada aqui. Uma segunda deteccao de runtime divergiria da
+        # primeira, e a divergencia so apareceria como dois vereditos
+        # diferentes sobre a mesma execucao.
+        "runtime": runtime if runtime is not None else {},
     }
 
 
@@ -213,7 +255,11 @@ def main(run_dir, script_globals):
         status.set_state("script_started", detail="bootstrap.py iniciou o runner interno.")
 
         # Passo 2: valida procedencia (platform/cli + IronPython + 2.7).
-        provenance_ok, provenance_detail = _check_provenance()
+        provenance_ok, provenance_detail, provenance_runtime = _check_provenance()
+        # Guardado ANTES do teste: o caminho de abort tambem precisa emitir a
+        # secao 'runtime' com os valores observados -- e justamente quando a
+        # procedencia reprova que saber o que foi observado importa.
+        result["runtime"] = provenance_runtime
         if not provenance_ok:
             return _abort("provenance_check_failed", detail=provenance_detail)
 
@@ -439,7 +485,10 @@ def main(run_dir, script_globals):
             except Exception:
                 pass
 
-            ladder_probe_module = _load_ladder_probe_module(config["mastertool_scripts_dir"])
+            ladder_probe_module = _load_ladder_probe_module(
+                config["mastertool_scripts_dir"],
+                "16_probe_ladder_object_surface.py",
+                "mastertool_bridge_probe_16_ladder_object_surface")
             ladder_output_dir = os.path.join(output_dir, "ladder-surface-probe")
             file_io.ensure_dir(ladder_output_dir)
             ladder_probe_result = ladder_probe_module.probe_ladder_surface(
@@ -458,6 +507,222 @@ def main(run_dir, script_globals):
             except Exception:
                 pass
 
+        ladder_dynamic_probe_result = None
+        if operations.get("probe_ladder_dynamic_surface"):
+            # Fase L1 (docs/14-ladder-roadmap.md), operacao INDEPENDENTE do
+            # probe 16 (flag, secao de config e diretorio de saida proprios --
+            # sao sondagens distintas: reflexao CLR estatica vs superficie
+            # dinamica, contrato secao 3.1). Ao contrario do probe 16, este
+            # tem estado dedicado ('probing_ladder_dynamic_surface', ver
+            # run_status.VALID_STATES) porque carrega um GATE DE VALIDADE
+            # proprio (o controle 'textual_declaration') cujo resultado
+            # decide se o probe e conclusivo ou nao.
+            status.set_state(
+                "probing_ladder_dynamic_surface",
+                detail="Executando probe_ladder_dynamic_surface (Fase L1) sobre o objeto alvo configurado.")
+            try:
+                print("[INFO] probe_ladder_dynamic_surface: target_node_id=%s"
+                     % config["ladder_dynamic_probe"]["target_node_id"])
+            except Exception:
+                pass
+
+            ladder_dynamic_probe_module = _load_ladder_probe_module(
+                config["mastertool_scripts_dir"],
+                "17_probe_ladder_dynamic_surface.py",
+                "mastertool_bridge_probe_17_ladder_dynamic_surface")
+            ladder_dynamic_output_dir = os.path.join(output_dir, "ladder-dynamic-surface")
+            file_io.ensure_dir(ladder_dynamic_output_dir)
+            ladder_dynamic_probe_result = ladder_dynamic_probe_module.probe_ladder_dynamic_surface(
+                application, config["ladder_dynamic_probe"], ladder_dynamic_output_dir)
+
+            if ladder_dynamic_probe_result.get("aborted"):
+                return _abort(
+                    "ladder_dynamic_probe_" + str(ladder_dynamic_probe_result.get("abort_reason")),
+                    detail=ladder_dynamic_probe_result)
+
+            try:
+                print("[OK] probe_ladder_dynamic_surface concluido: "
+                     "dynamic_probe_validated=%s ladder_candidate_count=%s"
+                     % (ladder_dynamic_probe_result.get("dynamic_probe_validated"),
+                        ladder_dynamic_probe_result.get("ladder_candidate_count")))
+                if not ladder_dynamic_probe_result.get("dynamic_probe_validated"):
+                    # Um resultado inconclusivo NUNCA pode parecer sucesso na
+                    # aba de Mensagens: o gate de validade (controle
+                    # 'textual_declaration') nao confirmou que a superficie
+                    # dinamica foi de fato observada, entao nenhuma conclusao
+                    # sobre AUSENCIA de API Ladder e permitida a partir deste
+                    # resultado.
+                    print("[ATENCAO] probe_ladder_dynamic_surface: resultado "
+                         "INCONCLUSIVO (dynamic_probe_validated=False). "
+                         "Nenhuma conclusao sobre ausencia de API Ladder e "
+                         "permitida a partir deste resultado.")
+            except Exception:
+                pass
+
+        ladder_extender_probe_result = None
+        if operations.get("probe_ladder_extender_surface"):
+            # Fase L1, terceiro canal: Extender/IExtendedObject. Independente
+            # dos probes 16 e 17 (flag, secao e diretorio proprios) e com
+            # estado dedicado, porque tem gate distinto dos outros dois:
+            # Extender acessivel -> canal enumeravel -> controle
+            # 'textual_declaration' REENCONTRADO por caminho estrutural.
+            status.set_state(
+                "probing_ladder_extender_surface",
+                detail="Executando probe_ladder_extender_surface (Fase L1) sobre o objeto alvo configurado.")
+            try:
+                print("[INFO] probe_ladder_extender_surface: target_node_id=%s"
+                     % config["ladder_extender_probe"]["target_node_id"])
+            except Exception:
+                pass
+
+            ladder_extender_probe_module = _load_ladder_probe_module(
+                config["mastertool_scripts_dir"],
+                "18_probe_ladder_extender_surface.py",
+                "mastertool_bridge_probe_18_ladder_extender_surface")
+            ladder_extender_output_dir = os.path.join(output_dir, "ladder-extender-probe")
+            file_io.ensure_dir(ladder_extender_output_dir)
+            ladder_extender_probe_result = ladder_extender_probe_module.probe_ladder_extender_surface(
+                application, config["ladder_extender_probe"], ladder_extender_output_dir)
+
+            if ladder_extender_probe_result.get("aborted"):
+                return _abort(
+                    "ladder_extender_probe_" + str(ladder_extender_probe_result.get("abort_reason")),
+                    detail=ladder_extender_probe_result)
+
+            try:
+                print("[OK] probe_ladder_extender_surface concluido: result_case=%s "
+                     "extender_channel_validated=%s ladder_candidate_count=%s"
+                     % (ladder_extender_probe_result.get("result_case"),
+                        ladder_extender_probe_result.get("extender_channel_validated"),
+                        ladder_extender_probe_result.get("ladder_candidate_count")))
+                if not ladder_extender_probe_result.get("extender_channel_validated"):
+                    # E3/E4 sao execucoes CORRETAS que nao confirmaram o
+                    # canal -- resultado semantico inconclusivo, NAO falha
+                    # operacional. O runner segue para validating/completed;
+                    # o que nao pode e o operador ler isso como sucesso.
+                    print("[ATENCAO] probe_ladder_extender_surface: canal NAO "
+                         "validado (%s). O controle 'textual_declaration' nao "
+                         "foi reencontrado por um caminho que passe pelo "
+                         "Extender. Resultado INCONCLUSIVO: nenhuma conclusao "
+                         "sobre existencia ou ausencia de API Ladder e "
+                         "permitida. A execucao em si esta correta -- isto NAO "
+                         "e falha do runner."
+                         % ladder_extender_probe_result.get("result_case"))
+            except Exception:
+                pass
+
+        plcopen_signature_result = None
+        if operations.get("probe_plcopen_export_signature"):
+            # Fase L1, rota de exportacao. Gate proprio: comprovar a
+            # assinatura COMPLETA de export_xml SEM invoca-lo. Estado
+            # dedicado pelo mesmo motivo dos probes 17/18.
+            section = config["plcopen_export_signature_probe"]
+            inspect_app = section.get("inspect_active_application", True)
+            status.set_state(
+                "probing_plcopen_export_signature",
+                detail="Executando probe_plcopen_export_signature (Fase L1) -- reflexao "
+                      "da assinatura de export_xml, SEM invocacao.")
+            try:
+                print("[INFO] probe_plcopen_export_signature: target_node_id=%s "
+                     "inspect_active_application=%s"
+                     % (section["target_node_id"], inspect_app))
+            except Exception:
+                pass
+
+            plcopen_module = _load_ladder_probe_module(
+                config["mastertool_scripts_dir"],
+                "19_probe_plcopen_xml_export_signature.py",
+                "mastertool_bridge_probe_19_plcopen_export_signature")
+            plcopen_output_dir = os.path.join(output_dir, "plcopen-signature-probe")
+            file_io.ensure_dir(plcopen_output_dir)
+            plcopen_signature_result = plcopen_module.probe_plcopen_export_signature(
+                application, section, plcopen_output_dir, inspect_app)
+
+            if plcopen_signature_result.get("aborted"):
+                return _abort(
+                    "plcopen_signature_" + str(plcopen_signature_result.get("abort_reason")),
+                    detail=plcopen_signature_result)
+
+            try:
+                print("[OK] probe_plcopen_export_signature concluido: POU=%s Application=%s "
+                     "(export_xml NUNCA invocado)"
+                     % (plcopen_signature_result.get("target_object_result_case"),
+                        plcopen_signature_result.get("active_application_result_case")))
+                if plcopen_signature_result.get("result_case") != "S1":
+                    # S2/S3 sao execucoes CORRETAS que nao comprovaram uma
+                    # sobrecarga invocavel -- resultado semantico
+                    # inconclusivo, NAO falha operacional.
+                    print("[ATENCAO] probe_plcopen_export_signature: nenhuma sobrecarga "
+                         "invocavel com seguranca comprovada no objeto alvo (%s). A "
+                         "exportacao permanece NAO autorizada. A execucao em si esta "
+                         "correta -- isto NAO e falha do runner."
+                         % plcopen_signature_result.get("result_case"))
+            except Exception:
+                pass
+
+        plcopen_export_result = None
+        if operations.get("export_plcopen_xml"):
+            # PRIMEIRA operacao que escreve em disco. O `export-root` NAO e
+            # criado aqui: quem cria e o host, ANTES de lancar o MasterTool,
+            # dentro do diretorio exclusivo da run. Este runner so confere e
+            # invoca -- separar quem cria de quem valida evita que o mesmo
+            # codigo que precisa do diretorio tambem decida que ele esta bom.
+            section = config["plcopen_export"]
+            status.set_state(
+                "exporting_plcopen_xml",
+                detail="Executando export_plcopen_xml (Fase L1) -- UMA invocacao de "
+                      "export_xml para diretorio descartavel autorizado.")
+            try:
+                print("[INFO] export_plcopen_xml: target_node_id=%s leaf=%s"
+                     % (section["target_node_id"], section["target_leaf_name"]))
+            except Exception:
+                pass
+
+            plcopen_export_module = _load_ladder_probe_module(
+                config["mastertool_scripts_dir"],
+                "20_validate_controlled_plcopen_export.py",
+                "mastertool_bridge_probe_20_controlled_plcopen_export")
+            # `export-root` e criado AQUI, depois de output_dir ja ter
+            # passado na guarda de "vazio" -- portanto nasce vazio por
+            # construcao, garantia mais forte que cria-lo antes e conferir
+            # depois. Pre-cria-lo no host fazia aquela guarda abortar toda a
+            # execucao (run 2026-07-28_11-37-05).
+            #
+            # A separacao "quem cria nao e quem valida" continua: este runner
+            # cria, o probe 20 valida existencia/vazio/reparse point/sentinel
+            # antes de invocar. O sentinel registra QUEM criou, para o
+            # artefato arquivado nao depender de memoria.
+            plcopen_export_dir = os.path.join(output_dir, "plcopen-export")
+            file_io.ensure_dir(plcopen_export_dir)
+            plcopen_export_root = os.path.join(plcopen_export_dir, "export-root")
+            file_io.ensure_dir(plcopen_export_root)
+            file_io.write_json(
+                os.path.join(plcopen_export_dir, "export-root-preparation.json"),
+                {
+                    "export_root_created_by": "internal_runner",
+                    "export_root_created_after": "output_dir_empty_check",
+                    "export_root_initially_empty": not os.listdir(plcopen_export_root),
+                    "export_root_path": plcopen_export_root,
+                    "run_id": config.get("run_id"),
+                })
+            plcopen_export_result = plcopen_export_module.probe_controlled_plcopen_export(
+                application, section, plcopen_export_dir)
+
+            if plcopen_export_result.get("aborted"):
+                return _abort(
+                    "plcopen_export_" + str(plcopen_export_result.get("abort_reason")),
+                    detail=plcopen_export_result)
+
+            try:
+                print("[OK] export_plcopen_xml concluido: result_case=%s entradas_criadas=%s"
+                     % (plcopen_export_result.get("result_case"),
+                        plcopen_export_result.get("created_entry_count")))
+                print("[INFO] O FORMATO do que foi produzido NAO e decidido aqui: a "
+                     "analise do XML roda no host, em CPython, depois que o "
+                     "MasterTool fechar.")
+            except Exception:
+                pass
+
         # Passo 13: status=validating -> confere artefatos + checksums.
         status.set_state("validating", detail="Conferindo artefatos gravados e gerando checksums.")
         expected_artifacts = []
@@ -472,6 +737,24 @@ def main(run_dir, script_globals):
         if operations.get("probe_ladder_surface"):
             expected_artifacts.append(os.path.join("ladder-surface-probe", "manifest.json"))
             expected_artifacts.append(os.path.join("ladder-surface-probe", "safety-declaration.json"))
+        if operations.get("probe_ladder_dynamic_surface"):
+            expected_artifacts.append(os.path.join("ladder-dynamic-surface", "manifest.json"))
+            expected_artifacts.append(os.path.join("ladder-dynamic-surface", "control-validation.json"))
+        if operations.get("export_plcopen_xml"):
+            for _name in ("invocation.json", "filesystem-before.json",
+                          "filesystem-after.json", "created-artifacts.json",
+                          "safety-declaration.json"):
+                expected_artifacts.append(os.path.join("plcopen-export", _name))
+        if operations.get("probe_plcopen_export_signature"):
+            expected_artifacts.append(os.path.join("plcopen-signature-probe", "manifest.json"))
+            expected_artifacts.append(
+                os.path.join("plcopen-signature-probe", "export-xml-overloads.json"))
+            expected_artifacts.append(
+                os.path.join("plcopen-signature-probe", "active-application-overloads.json"))
+        if operations.get("probe_ladder_extender_surface"):
+            expected_artifacts.append(os.path.join("ladder-extender-probe", "manifest.json"))
+            # Sem este artefato nao ha como saber se o canal foi validado.
+            expected_artifacts.append(os.path.join("ladder-extender-probe", "known-control-discovery.json"))
         missing_artifacts = [
             name for name in expected_artifacts
             if not os.path.isfile(os.path.join(output_dir, name))
@@ -483,7 +766,7 @@ def main(run_dir, script_globals):
         checksums.write_checksums_file(output_dir, os.path.join(output_dir, "checksums.sha256"))
 
         # Passo 14: grava a declaracao final e status=completed.
-        run_report = _build_run_report(limits)
+        run_report = _build_run_report(limits, result.get("runtime"))
         file_io.write_json(os.path.join(output_dir, "run-report.json"), run_report)
         status.set_state("completed", detail="Aquisicao supervisionada concluida.")
 

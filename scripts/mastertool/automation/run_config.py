@@ -51,6 +51,10 @@ KNOWN_OPERATION_KEYS = (
     "export_text",
     "inventory_graphic_objects",
     "probe_ladder_surface",
+    "probe_ladder_dynamic_surface",
+    "probe_ladder_extender_surface",
+    "probe_plcopen_export_signature",
+    "export_plcopen_xml",
     "build",
     "save",
     "online",
@@ -212,56 +216,222 @@ def load_run_config(run_dir):
                 "run-config.json, mas nao e permitida nesta fase do runner "
                 "supervisionado." % op_key)
 
-    _validate_ladder_probe_section(config, operations)
+    # Duas secoes independentes, mesma regra. O probe 17 NAO reutiliza a
+    # flag nem a secao do 16: sao sondagens distintas (reflexao CLR vs
+    # superficie dinamica) e precisam poder ser ligadas separadamente, com
+    # alvos que podem ate diferir.
+    _validate_ladder_probe_section(config, operations,
+                                   "ladder_probe", "probe_ladder_surface")
+    _validate_ladder_probe_section(config, operations,
+                                   "ladder_dynamic_probe",
+                                   "probe_ladder_dynamic_surface")
+    _validate_ladder_probe_section(config, operations,
+                                   "ladder_extender_probe",
+                                   "probe_ladder_extender_surface")
+    _validate_plcopen_signature_section(config, operations)
+    _validate_plcopen_export_section(config, operations)
+    _validate_ladder_probes_mutually_exclusive(operations)
 
     config["limits"] = _resolve_limits(config.get("limits"))
 
     return config
 
 
-def _validate_ladder_probe_section(config, operations):
-    """Valida a secao opcional 'ladder_probe' (contrato, secao 3.1). Regra
+def _validate_ladder_probe_section(config, operations, section_name=None,
+                                   operation_key=None):
+    """Valida uma secao de identidade de alvo de probe Ladder. Regra
     fail-closed EM AMBAS AS DIRECOES -- nao so a ausencia quando a operacao
     esta ligada, mas TAMBEM a presenca quando a operacao esta desligada
     (config incoerente nao e aceito por omissao, mesmo criterio ja aplicado
     a 'operations'/'limits'):
 
-        probe_ladder_surface=true  e ladder_probe ausente        -> reprova
-        probe_ladder_surface=false e ladder_probe presente        -> reprova
-        probe_ladder_surface=true  e ladder_probe com campo vazio -> reprova
+        <operacao>=true  e <secao> ausente        -> reprova
+        <operacao>=false e <secao> presente       -> reprova
+        <operacao>=true  e <secao> com campo vazio -> reprova
+
+    Parametrizada porque os probes 16 e 17 usam a MESMA regra sobre secoes
+    diferentes ('ladder_probe' e 'ladder_dynamic_probe'). Duplicar o corpo
+    criaria duas copias que podem divergir em silencio -- e divergencia
+    numa guarda fail-closed e exatamente o tipo de erro que so aparece
+    quando ja e tarde. Os defaults preservam a assinatura antiga, usada
+    pelos testes e chamadas existentes.
     """
-    ladder_probe = config.get("ladder_probe")
-    operation_enabled = bool(operations.get("probe_ladder_surface", False))
+    if section_name is None:
+        section_name = "ladder_probe"
+    if operation_key is None:
+        operation_key = "probe_ladder_surface"
+
+    ladder_probe = config.get(section_name)
+    operation_enabled = bool(operations.get(operation_key, False))
 
     if operation_enabled and ladder_probe is None:
         raise RunConfigError(
-            "Operacao 'operations.probe_ladder_surface' esta ligada, mas a secao "
-            "'ladder_probe' esta ausente em run-config.json (obrigatoria quando a "
-            "operacao esta ligada, contrato secao 3.1).")
+            "Operacao 'operations.%s' esta ligada, mas a secao "
+            "'%s' esta ausente em run-config.json (obrigatoria quando a "
+            "operacao esta ligada, contrato secao 3.1)."
+            % (operation_key, section_name))
 
     if not operation_enabled and ladder_probe is not None:
         raise RunConfigError(
-            "Secao 'ladder_probe' presente em run-config.json, mas "
-            "'operations.probe_ladder_surface' esta desligada -- config incoerente "
-            "nao e aceito por omissao (fail-closed, contrato secao 3.1).")
+            "Secao '%s' presente em run-config.json, mas "
+            "'operations.%s' esta desligada -- config incoerente "
+            "nao e aceito por omissao (fail-closed, contrato secao 3.1)."
+            % (section_name, operation_key))
 
     if not operation_enabled:
         return
 
     if not isinstance(ladder_probe, dict):
         raise RunConfigError(
-            "Secao 'ladder_probe' de run-config.json deve ser um objeto JSON "
-            "(recebido: %s)." % type(ladder_probe).__name__)
+            "Secao '%s' de run-config.json deve ser um objeto JSON "
+            "(recebido: %s)." % (section_name, type(ladder_probe).__name__))
 
     for field in LADDER_PROBE_REQUIRED_FIELDS:
         if field not in ladder_probe:
             raise RunConfigError(
-                "Campo obrigatorio ausente em 'ladder_probe': '%s'." % field)
+                "Campo obrigatorio ausente em '%s': '%s'."
+                % (section_name, field))
         value = ladder_probe[field]
         if not isinstance(value, _STRING_TYPES) or not value:
             raise RunConfigError(
-                "Campo 'ladder_probe.%s' deve ser uma string nao vazia (recebido: %r)."
-                % (field, value))
+                "Campo '%s.%s' deve ser uma string nao vazia (recebido: %r)."
+                % (section_name, field, value))
+
+
+# Os tres probes Ladder investigam CANAIS diferentes (reflexao CLR /
+# superficie dinamica / Extender) sobre o MESMO objeto. Rodar mais de um na
+# mesma run e recusado enquanto nao houver suporte explicito: cada um tem seu
+# proprio gate de validade e seu proprio diretorio de saida, e uma run com
+# dois deles produziria dois vereditos concorrentes sob um unico status --
+# ambiguidade justamente no registro que serve de auditoria. Separar as runs
+# custa uma execucao a mais e mantem cada artefato autoexplicativo.
+LADDER_PROBE_OPERATION_KEYS = (
+    "probe_ladder_surface",
+    "probe_ladder_dynamic_surface",
+    "probe_ladder_extender_surface",
+    "probe_plcopen_export_signature",
+    "export_plcopen_xml",
+)
+
+
+def _validate_ladder_probes_mutually_exclusive(operations):
+    enabled = [key for key in LADDER_PROBE_OPERATION_KEYS
+              if bool(operations.get(key, False))]
+    if len(enabled) > 1:
+        raise RunConfigError(
+            "Mais de um probe Ladder ligado na mesma run: %s. Cada probe "
+            "investiga um canal distinto e tem gate de validade proprio -- "
+            "combina-los produziria vereditos concorrentes sob um unico "
+            "status. Rode um por vez." % ", ".join(sorted(enabled)))
+
+
+# A secao do probe 19 tem os MESMOS 4 campos de identidade dos probes
+# Ladder MAIS um booleano proprio, entao nao reusa
+# _validate_ladder_probe_section (que exige exatamente 4 strings). Um campo
+# aceito e silenciosamente ignorado seria o mesmo defeito que
+# KNOWN_OPERATION_KEYS existe para impedir.
+PLCOPEN_SIGNATURE_SECTION = "plcopen_export_signature_probe"
+PLCOPEN_SIGNATURE_OPERATION = "probe_plcopen_export_signature"
+
+
+def _validate_plcopen_signature_section(config, operations):
+    section = config.get(PLCOPEN_SIGNATURE_SECTION)
+    enabled = bool(operations.get(PLCOPEN_SIGNATURE_OPERATION, False))
+
+    if enabled and section is None:
+        raise RunConfigError(
+            "Operacao 'operations.%s' esta ligada, mas a secao '%s' esta ausente "
+            "em run-config.json." % (PLCOPEN_SIGNATURE_OPERATION, PLCOPEN_SIGNATURE_SECTION))
+    if not enabled and section is not None:
+        raise RunConfigError(
+            "Secao '%s' presente mas 'operations.%s' desligada -- config incoerente "
+            "nao e aceito por omissao (fail-closed)."
+            % (PLCOPEN_SIGNATURE_SECTION, PLCOPEN_SIGNATURE_OPERATION))
+    if not enabled:
+        return
+
+    if not isinstance(section, dict):
+        raise RunConfigError(
+            "Secao '%s' deve ser um objeto JSON (recebido: %s)."
+            % (PLCOPEN_SIGNATURE_SECTION, type(section).__name__))
+
+    for field in LADDER_PROBE_REQUIRED_FIELDS:
+        if field not in section:
+            raise RunConfigError(
+                "Campo obrigatorio ausente em '%s': '%s'."
+                % (PLCOPEN_SIGNATURE_SECTION, field))
+        value = section[field]
+        if not isinstance(value, _STRING_TYPES) or not value:
+            raise RunConfigError(
+                "Campo '%s.%s' deve ser uma string nao vazia (recebido: %r)."
+                % (PLCOPEN_SIGNATURE_SECTION, field, value))
+
+    # Booleano ESTRITO: aceitar 0/1/"true" faria a config parecer valida com
+    # um valor que nao expressa a intencao. Ausente vale True (inspecionar),
+    # que e o comportamento util por padrao.
+    if "inspect_active_application" in section:
+        flag = section["inspect_active_application"]
+        if not isinstance(flag, bool):
+            raise RunConfigError(
+                "Campo '%s.inspect_active_application' deve ser booleano true/false "
+                "(recebido: %r)." % (PLCOPEN_SIGNATURE_SECTION, flag))
+
+
+PLCOPEN_EXPORT_SECTION = "plcopen_export"
+PLCOPEN_EXPORT_OPERATION = "export_plcopen_xml"
+
+# Os tres booleanos existem para AUDITORIA -- para um run-config.json
+# arquivado dizer com que argumentos a exportacao correu -- e nao para abrir
+# uma matriz livre de execucao. Nesta versao qualquer valor diferente de
+# False reprova: uma combinacao nao testada nao pode entrar em producao por
+# alguem editar o JSON.
+PLCOPEN_EXPORT_FALSE_ONLY_FIELDS = ("recursive", "export_folder_structure", "plain_text")
+
+
+def _validate_plcopen_export_section(config, operations):
+    section = config.get(PLCOPEN_EXPORT_SECTION)
+    enabled = bool(operations.get(PLCOPEN_EXPORT_OPERATION, False))
+
+    if enabled and section is None:
+        raise RunConfigError(
+            "Operacao 'operations.%s' esta ligada, mas a secao '%s' esta ausente."
+            % (PLCOPEN_EXPORT_OPERATION, PLCOPEN_EXPORT_SECTION))
+    if not enabled and section is not None:
+        raise RunConfigError(
+            "Secao '%s' presente mas 'operations.%s' desligada -- config incoerente "
+            "nao e aceito por omissao (fail-closed)."
+            % (PLCOPEN_EXPORT_SECTION, PLCOPEN_EXPORT_OPERATION))
+    if not enabled:
+        return
+
+    if not isinstance(section, dict):
+        raise RunConfigError(
+            "Secao '%s' deve ser um objeto JSON (recebido: %s)."
+            % (PLCOPEN_EXPORT_SECTION, type(section).__name__))
+
+    for field in LADDER_PROBE_REQUIRED_FIELDS + ("target_leaf_name",):
+        if field not in section:
+            raise RunConfigError(
+                "Campo obrigatorio ausente em '%s': '%s'."
+                % (PLCOPEN_EXPORT_SECTION, field))
+        value = section[field]
+        if not isinstance(value, _STRING_TYPES) or not value:
+            raise RunConfigError(
+                "Campo '%s.%s' deve ser uma string nao vazia (recebido: %r)."
+                % (PLCOPEN_EXPORT_SECTION, field, value))
+
+    for field in PLCOPEN_EXPORT_FALSE_ONLY_FIELDS:
+        if field not in section:
+            raise RunConfigError(
+                "Campo obrigatorio ausente em '%s': '%s' (exigido explicitamente "
+                "para o run-config arquivado registrar com que argumentos a "
+                "exportacao correu)." % (PLCOPEN_EXPORT_SECTION, field))
+        value = section[field]
+        if value is not False:
+            raise RunConfigError(
+                "Campo '%s.%s' deve ser exatamente false nesta versao (recebido: "
+                "%r). Os tres booleanos existem para auditoria, nao para abrir "
+                "matriz de execucao." % (PLCOPEN_EXPORT_SECTION, field, value))
 
 
 def _is_positive_int(value):

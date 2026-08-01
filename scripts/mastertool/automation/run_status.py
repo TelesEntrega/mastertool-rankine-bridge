@@ -30,6 +30,29 @@ VALID_STATES = (
     "project_identity_validated",
     "scanning",
     "exporting",
+    # 'probing_ladder_dynamic_surface' e um estado DEDICADO (ao contrario do
+    # probe 16, que reusa 'scanning'). Motivo: o probe 17 tem um GATE DE
+    # VALIDADE proprio -- o controle 'textual_declaration' -- cujo resultado
+    # decide se a fase L1 avança ou fica marcada como inconclusiva. Misturar
+    # essa transicao com 'scanning' apagaria essa distincao no
+    # status-history.jsonl, que e o registro de auditoria da execucao: um
+    # leitor externo nao conseguiria distinguir "sondando estrutura generica"
+    # de "sondando a superficie dinamica cujo resultado pode ser
+    # inconclusivo" so olhando o historico.
+    "probing_ladder_dynamic_surface",
+    # Canal Extender/providers/descriptors -- fronteira operacional propria,
+    # com gate distinto dos outros dois (Extender acessivel -> canal
+    # enumeravel -> controle reencontrado). Um estado generico exigiria
+    # consultar campos auxiliares para saber qual operacao estava em curso
+    # quando uma execucao parou.
+    "probing_ladder_extender_surface",
+    # Assinatura de export_xml -- gate proprio: comprovar a assinatura
+    # COMPLETA sem invocar o metodo.
+    "probing_plcopen_export_signature",
+    # Primeira operacao que ESCREVE. Estado proprio para o
+    # status-history.jsonl distinguir "sondou" de "exportou" -- a diferenca
+    # importa numa auditoria.
+    "exporting_plcopen_xml",
     "validating",
     "completed",
     "failed",

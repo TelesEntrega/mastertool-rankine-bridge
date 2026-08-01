@@ -14,15 +14,16 @@
 > `MainPrg`/`SpecialVariablesPrg` confirmados `supported`. **Gate de L1
 > aberto.**
 >
-> **L1 executada em 2026-07-27, mas NÃO fechada.** A sondagem confirmou a
-> rota `export_xml` → **PLCopen XML** (achada pelo tipo
-> `_3S.CoDeSys.PLCopenXML.ConflictResolve` numa assinatura real). Porém a
-> enumeração por reflexão .NET não enxerga as extensões dinâmicas do
-> ScriptEngine — provado pelo caso-controle `textual_declaration`, membro
-> funcional que não apareceu na lista. Logo o resultado negativo é
-> inconclusivo e **o gate de L2 segue fechado**. Ver seção "Estado de
-> execução" ao final deste documento para o registro vivo de progresso e a
-> evidência completa.
+> **L1 FECHADA em 2026-07-28.** Quatro canais foram testados: reflexão CLR
+> (probe 16) não expõe os membros dinâmicos; `dir()` (probe 17) veio vazio;
+> `Extender`/`IExtendedObject` (probe 18) devolve o mesmo `ScriptObject`, não
+> um provider. O quarto funcionou: `export_xml` → **PLCopen XML `tc6_0200`**,
+> com corpo `<LD>` estruturado (resultado **P1**), validado numa exportação
+> real de 25.226 bytes. O schema real está mapeado em
+> `docs/17-plcopen-ladder-schema.md` e o modelo canônico já existe. **Gate de
+> L2 aberto** — mas a interpretação semântica só começa depois do parser e da
+> consolidação arquitetural. Ver "Estado de execução" ao final para a
+> evidência completa e os defeitos encontrados no caminho.
 >
 > **Regra permanente desta trilha**: nenhuma fase além de L0 (análise
 > offline sobre dados já exportados) pode avançar sem uma execução real
@@ -33,7 +34,7 @@
 
 ## 1. Visão do produto
 
-O objetivo final do `mastertool-ai-bridge` é executar sobre qualquer projeto MasterTool compatível e produzir no computador uma representação completa, portátil e consultável do projeto.
+O objetivo final do `mastertool-rankine-bridge` é executar sobre qualquer projeto MasterTool compatível e produzir no computador uma representação completa, portátil e consultável do projeto.
 
 Essa representação deverá permitir:
 
@@ -459,25 +460,43 @@ feat: parse Ladder network topology
 
 ## Fase L5 — Semântica Ladder
 
+> **A especificação normativa desta fase é
+> [`21-contrato-semantica-ladder.md`](21-contrato-semantica-ladder.md).** Esta
+> seção é roadmap; onde as duas divergirem, `docs/21` prevalece.
+
+> **BACKLOG desde 2026-07-31.** L5 deixou de ser o caminho crítico: a
+> prioridade passou para `MasterTool X controlled project authoring`
+> (ver [`18-estado-e-proximo-passo.md`](18-estado-e-proximo-passo.md)). A fase
+> **não** foi descartada e o contrato continua íntegro e válido — a
+> implementação é que não foi iniciada. L5, L6 e L7 voltam quando a trilha de
+> escrita alcançar o marco W5, onde a semântica serve como validador da lógica
+> criada.
+
 ### Objetivo
 
 Transformar a topologia em símbolos, referências, leituras, escritas e chamadas.
 
 ### Regras iniciais
 
-| Elemento             | Classificação         |
+A unidade de classificação é a **ocorrência**, nunca o símbolo:
+
+| Elemento | Classificação da ocorrência |
 | --------------------- | --------------------- |
 | Contato              | leitura               |
 | Contato negado       | leitura               |
 | Bobina               | escrita               |
 | Bobina SET           | escrita               |
 | Bobina RESET         | escrita               |
-| Variável de retenção | leitura e escrita     |
-| Entrada de FB        | leitura               |
-| Saída de FB          | escrita               |
-| IN_OUT               | leitura e escrita     |
+| Variável de retenção | leitura **ou** escrita conforme o elemento — ser retentiva não torna a ocorrência bidirecional |
+| Pino declarado `input` | leitura — refina a direção do acesso do elemento conectado (`docs/21` §6) |
+| Pino declarado `output` | escrita — idem |
+| Pino declarado `inout` | `read_write` — a única ocorrência intrinsecamente bidirecional |
 | Callee de bloco      | chamada               |
-| Comparador           | leitura dos operandos |
+| Comparador           | é um bloco: produz **chamada**. Os operandos são elementos próprios e emitem as suas próprias leituras |
+
+`read_write` fica reservado à ocorrência que lê e escreve por natureza — o caso
+`VAR_IN_OUT`. Um pino não carrega símbolo: ele refina a direção do acesso do
+elemento ligado a ele.
 
 ### Exemplo
 
@@ -485,13 +504,23 @@ Transformar a topologia em símbolos, referências, leituras, escritas e chamada
 Equipamento
 ```
 
-aparecendo como contato e bobina na mesma rede:
+aparecendo como contato e bobina na mesma rede produz **duas ocorrências**, não
+uma:
 
 ```text
-read_write
+Equipamento → read     (contato)
+Equipamento → write    (bobina)
 ```
 
+O símbolo passa a constar nos conjuntos de leitura **e** de escrita. Não se
+fabrica uma terceira ocorrência `read_write`, e o tipo das duas originais não é
+alterado retroativamente. Uma consulta agregada pode apresentar
+`access_modes: ["read", "write"]` — isso é apresentação, não reclassificação.
+
 ### Saídas
+
+A entrega é um **modelo serializável**, não um conjunto obrigatório de arquivos.
+Os nomes abaixo são registro histórico desta redação, não entregáveis:
 
 ```text
 ladder-references.json
@@ -500,6 +529,13 @@ ladder-read-write.json
 ladder-networks.json
 ladder-diagnostics.json
 ```
+
+`ladder-networks.json` duplicaria o artefato de topologia e
+`ladder-diagnostics.json` seria uma segunda cópia de uma lista que já viaja
+dentro do modelo — duas cópias do mesmo fato divergem com o tempo. Arquivo
+físico entra quando houver consumidor real, com o nome que esse consumidor
+precisar, usando a infraestrutura de serialização que já existe no repositório
+(`docs/21` §15).
 
 ### Evidências
 
@@ -518,7 +554,9 @@ Cada ocorrência deve preservar:
 
 ### Gate L5
 
-Perguntas determinísticas devem funcionar para uma POU exclusivamente Ladder:
+O gate é cumprido na **camada de modelo / API interna**, sobre
+`GraphicPOU + LogicalTopology`. Estas quatro perguntas devem ser respondíveis
+para uma POU exclusivamente Ladder:
 
 ```text
 find reads Start
@@ -526,6 +564,22 @@ find writes Equipamento
 find calls Temporizador
 find callers FB_Motor
 ```
+
+Cumprir o gate **não** exige, e a fase **não** entrega:
+
+```text
+registrar resultados no ProjectSymbolIndex
+resolver símbolo global ou consultar GVL
+integrar as respostas à CLI
+mesclar evidência ST e Ladder na mesma consulta
+```
+
+Tudo isso é **Fase L6**. Fazê-lo aqui obrigaria a construir um segundo
+resolvedor de símbolo ao lado de `indexer/symbol_resolver.py`.
+
+Para chamada, `resolved` nesta fase significa **apenas** que o callee foi
+extraído inequivocamente do elemento canônico. Não afirma que existe uma POU
+correspondente no projeto — esse binding é L6.
 
 ### Commit sugerido
 
@@ -1291,7 +1345,8 @@ de que ele não exista**. Concluir o contrário desenharia L2 sobre uma
 ausência que o método não é capaz de detectar — precisamente o que a regra
 permanente desta trilha proíbe.
 
-**Veredito da Fase L1: parcial. Gate de L2 permanece FECHADO.**
+**Veredito da sondagem dinâmica isolada: parcial.** (Superado — ver
+"L1 — FECHADA em 2026-07-28" adiante.)
 
 Falta, antes de fechar: uma segunda passada de enumeração sobre a
 superfície **dinâmica** (`dir()` do lado IronPython + `hasattr` contra a
@@ -1302,6 +1357,114 @@ uma eventual rota por extensão poderá ser feita sobre evidência.
 Ressalva de escopo para o passo seguinte: `export_xml` **escreve arquivo em
 disco**, o que sai do perfil estritamente read-only vigente. Exige
 autorização humana explícita e destino descartável definido pelo operador.
+
+## L1 — FECHADA em 2026-07-28: fonte Ladder encontrada e schema mapeado
+
+O gate de L1 era descobrir **como** alcançar a representação Ladder. Está
+respondido, com evidência real, depois de eliminar três canais e achar o
+quarto.
+
+### Os quatro canais, na ordem em que foram testados
+
+| # | Canal | Probe | Resultado real |
+|---|---|---|---|
+| 1 | Reflexão CLR do proxy | 16 (`2dd6426`) | não expõe os membros dinâmicos |
+| 2 | `dir()` / acesso dinâmico | 17 (`1140784`) | `dir()` **vazio** — caso D |
+| 3 | `Extender`/`IExtendedObject` | 18 (`88a45da`) | devolve o **mesmo** `ScriptObject` — E3 |
+| 4 | **`export_xml` → PLCopen XML** | 19–20 (`6540a69`, `aafc87b`) | **P1: corpo LD estruturado** |
+
+Os três primeiros foram eliminações bem documentadas, não fracassos: cada
+uma restringiu o espaço de busca e nenhuma autorizou concluir ausência de
+API Ladder.
+
+### O que a exportação real produziu (2026-07-28, run `2026-07-28_13-48-23`)
+
+Uma invocação de `export_xml(stPath, False, False, False)` gerou **um
+arquivo de 25.226 bytes, sem extensão** — `stPath` é **arquivo**, não
+diretório. A guarda de extensão `.xml` que o contrato original previa teria
+quebrado exatamente aqui; a guarda de diretório vazio, adotada por não
+sabermos a semântica, funcionou na primeira tentativa.
+
+Conteúdo: PLCopen XML `tc6_0200`, POU alvo presente com
+`body_kinds: ["LD"]`, e o inventário gráfico — 1 `LD`, 2 `contact`,
+3 `coil`, 10 `block`, 14 `inVariable`, 33 `connectionPointIn`,
+36 `connectionPointOut`. Zero corpos textuais, coerente com o achado do
+probe 17 de que a implementação é gráfica.
+
+Higiene: hash da cópia inalterado, procedência confirmada, escrita restrita
+ao diretório descartável, projeto intocado.
+
+### Schema real mapeado (`ef0bf7b`)
+
+`docs/17-plcopen-ladder-schema.md` responde as dez perguntas do gate. Os
+cinco fatos que mudam o desenho de qualquer parser:
+
+1. **Não existe `<network>`** — redes são reconstruídas, e a reconstrução
+   precisa de dois sinais (marcador `networktitle` do fornecedor **e**
+   topologia sem trilhos, com as arestas de `ParallelBranch`). Os dois
+   concordam no arquivo real.
+2. **Posição gráfica é inútil** — as 42 `<position>` são `(0,0)`.
+3. **Paralelo é extensão do fornecedor**, não PLCopen padrão.
+4. **`CallType`** separa `operator` de `functionblock`; `instanceName` só
+   existe no segundo.
+5. **`formalParameter` da `<connection>` não é confiável** como pino de
+   origem — no arquivo real traz, às vezes, o nome da variável do destino.
+
+### Modelo canônico (`20f19a5`)
+
+Tipos, invariantes e serialização, sem parser. Preserva o que ainda não
+compreendemos em vez de descartar: as duas fontes de topologia ficam
+separadas, o `formalParameter` cru convive com o pino resolvido, coordenada
+não pode ser declarada utilizável, e `not_observed` nunca vira
+`unsupported`.
+
+**Veredito da Fase L1: FECHADA.** Gate de L2 (interpretação) aberto, mas a
+interpretação semântica só começa depois do parser e da consolidação.
+
+### Parser estrutural — `structure_map` → `canonical_model`: **CONCLUÍDO**
+
+`src/mastertool_bridge/plcopen/ladder_parser.py` liga o mapa estrutural ao
+modelo canônico: `parse_ladder(xml_path) -> GraphicPOU`. Nenhuma lógica de
+XML nova além do que `map_structure()` já resolve — a única exceção é o hash
+de `VendorExtension.raw_fragment_hash`, ponto único e documentado onde o
+parser reabre o XML.
+
+Validado contra a fixture sintética (20 elementos, 14 evidências
+`plcopen_connection`, 3 `vendor_parallel_branch`, nenhum elemento
+`unknown`) **e** contra o export real (2026-07-28), sem nenhum conteúdo do
+cliente entrando no repositório. A anomalia real do arquivo (bobina
+referenciando bloco `EQ` com `formalParameter` igual ao nome da própria
+variável) fica `unresolved`, com o valor cru preservado — nunca "corrigida"
+em silêncio.
+
+Achado corrigido durante a revisão adversarial: o valor cru de
+`formalParameter` precisa ser colhido de TODAS as evidências que sustentam
+uma aresta (`plcopen_connection` e `vendor_parallel_branch`), não só da
+primeira — senão o `ENO` que o `ParallelBranch` do fornecedor declara
+explicitamente desaparecia quando a aresta só tinha evidência de paralelo.
+Valores crus conflitantes entre evidências da mesma aresta nunca são
+escolhidos por preferência; viram `ambiguous` com diagnóstico.
+
+Este é o "parser de redes" citado na seção 6 (item 5) e fecha a Fase L3/L4
+de reconstrução estrutural (redes, componentes, pinos, arestas). A
+interpretação read/write/calls (Fase L5) continua bloqueada até a
+consolidação prevista a seguir.
+
+### Defeitos encontrados no caminho, todos corrigidos
+
+Registro honesto — a maioria foi introduzida por nós e pega por verificação
+adversarial ou por execução real:
+
+- taxonomia do probe 17 confundia **acesso por nome** com **enumeração de
+  nomes**, classificando um `dir()` vazio como evidência de ausência
+  (`1140784`);
+- a seção `runtime` nunca era emitida no `run-report.json`, então **toda**
+  execução supervisionada real terminava `failed` desde a Etapa B
+  (`d418885`);
+- o host pré-criava `export-root` dentro de `output/`, colidindo com a
+  guarda de "output vazio" do runner interno (`1b650c3`);
+- a análise offline lia `export_xml_called` do arquivo errado e pulava
+  sempre, inclusive numa aquisição perfeita (`a294edc`).
 
 ## L2–L8, v0.2–v1.0: bloqueadas
 

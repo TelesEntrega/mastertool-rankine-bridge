@@ -11,15 +11,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# Estados terminais possíveis do lado host (superconjunto dos estados do
-# `status.json` interno — `needs_interaction`/`failed`/`completed` reaparecem
-# aqui, mais os estados que só existem antes do processo MasterTool começar
-# a escrever `status.json`).
-TERMINAL_STATES = (
-    "completed",
-    "failed",
-    "needs_interaction",
+from mastertool_bridge.automation.run_states import (  # noqa: F401
+    TERMINAL_STATES,
 )
+
+# `TERMINAL_STATES` é reexportado de `run_states` — era declarado aqui e em
+# `scripts/mastertool/automation/run_status.py`, duas cópias que podiam
+# divergir em silêncio. Reexportado, e não movido de vez, porque chamadores
+# existentes importam o nome deste módulo.
 
 
 @dataclass

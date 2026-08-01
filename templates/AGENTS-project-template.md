@@ -1,6 +1,6 @@
 # AGENTS.md — <NOME DO PROJETO DE CLP>
 
-Template para projetos que consomem exports do mastertool-ai-bridge.
+Template para projetos que consomem exports do mastertool-rankine-bridge.
 
 ## Contexto
 - Controlador: <NX3008 / outro>

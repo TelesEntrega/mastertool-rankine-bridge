@@ -1,6 +1,6 @@
 # Visão geral
 
-O **mastertool-ai-bridge** cria uma ponte auditável entre o MasterTool IEC XE 3.63
+O **mastertool-rankine-bridge** cria uma ponte auditável entre o MasterTool IEC XE 3.63
 (CLPs Altus Nexto, especialmente NX3008) e o ecossistema Python 3 / Git / agentes de IA.
 
 ```text

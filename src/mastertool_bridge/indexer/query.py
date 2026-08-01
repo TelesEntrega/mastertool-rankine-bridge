@@ -756,14 +756,15 @@ def run_answer(index_dir: Path, question: str) -> dict[str, Any]:
     corrompido) OU qualquer exceção inesperada durante `answer_query` --
     NUNCA deixa um traceback cru escapar para o chamador (CLI)."""
     from mastertool_bridge.indexer.query_intent import parse_query_intent
-    from mastertool_bridge.indexer.query_response import QueryAnswer, answer_query
+    from mastertool_bridge.indexer.query_response import (
+        SCHEMA_VERSION, QueryAnswer, answer_query)
 
     try:
         bundle = load_query_bundle(index_dir)
     except ValidationError as exc:
         intent = parse_query_intent(question)
         return QueryAnswer(
-            schema_version=1,
+            schema_version=SCHEMA_VERSION,
             question=question,
             status="error",
             intent=intent.to_dict(),
@@ -777,7 +778,7 @@ def run_answer(index_dir: Path, question: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 - rede de seguranca deliberada
         intent = parse_query_intent(question)
         return QueryAnswer(
-            schema_version=1,
+            schema_version=SCHEMA_VERSION,
             question=question,
             status="error",
             intent=intent.to_dict(),

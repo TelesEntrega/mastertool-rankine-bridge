@@ -1,3 +1,17 @@
 pyyaml>=6.0
 jsonschema>=4.17
 pytest>=8.0
+# Necessario para `tests/test_mcp_server_e2e.py`, que sobe o servidor MCP como
+# subprocesso e conecta como cliente real. Sem isto, os testes `async def`
+# falham em "async def functions are not natively supported" -- antes de
+# qualquer logica -- e a suite perde a capacidade de distinguir regressao nova
+# de ambiente incompleto. Os testes usam `@pytest.mark.asyncio` explicito, logo
+# o modo STRICT padrao e o correto: nao configurar `asyncio_mode`.
+pytest-asyncio>=1.0,<2
+# `mcp` ja e dependencia de runtime em `pyproject.toml`, mas este arquivo lista
+# as dependencias na integra em vez de delegar (mesma escolha ja feita para
+# pyyaml e jsonschema). Sem a linha, um ambiente montado so a partir deste
+# manifesto importa `tests/test_mcp_server_e2e.py` e morre em ModuleNotFoundError.
+# O teto `<2` esta medido, nao suposto: 2.0.0 removeu `mcp.server.fastmcp`, que
+# `mcp_server.py` importa. Ver a nota longa em `pyproject.toml`.
+mcp>=1.0,<2

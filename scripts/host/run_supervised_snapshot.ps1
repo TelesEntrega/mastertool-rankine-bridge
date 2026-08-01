@@ -24,12 +24,12 @@ com crase, aspas, `$env:` em vez de VAR=valor).
 param(
     [string]$RepoRoot,
 
-    [string]$ProjectCopy = 'C:\caminho\para\Projeto Teste\_descartavel\ExemploPlanta V1.0 COPIA.project',
-    [string]$OriginalProject = 'C:\caminho\para\Projeto Teste\ExemploPlanta V1.0.project',
+    [string]$ProjectCopy = 'C:\Pasta Com Espacos\Projeto Teste\_descartavel\ExemploPlanta V1.0 COPIA.project',
+    [string]$OriginalProject = 'C:\Pasta Com Espacos\Projeto Teste\ExemploPlanta V1.0.project',
 
     # Sem espacos de proposito: nao e exigencia aqui (o orquestrador nao usa
     # --scriptargs), mas mantem o layout de execucao previsivel.
-    [string]$RunsRoot = 'C:\mastertool-ai-bridge-runs',
+    [string]$RunsRoot = 'C:\mastertool-bridge-runs',
 
     # Identidade da Application do ExemploPlanta V1.0. Trocar ao rodar contra
     # outro projeto - NUNCA hardcoded do lado Python, por isso vem por
@@ -51,6 +51,44 @@ param(
     [string]$LadderExpectedName = 'FB_PISCA_EXEMPLO',
     [string]$LadderExpectedGuid = '00000000-0000-0000-0000-000000000002',
     [string]$LadderExpectedTypeGuid = '6f9dac99-8de1-4efc-8465-68ac443b7d08',
+
+    # Fase L1, probe 17 - sondagem da superficie DINAMICA. Defaults VAZIOS de
+    # proposito, diferente dos -Ladder* do probe 16: o contrato exige
+    # identidade explicita no modo supervisionado. Um default preenchido
+    # transformaria "esqueci de informar o alvo" numa execucao silenciosa
+    # contra o alvo de outra pessoa.
+    [switch]$ProbeLadderDynamicSurface,
+    [string]$LadderDynamicTargetNodeId = '',
+    [string]$LadderDynamicExpectedName = '',
+    [string]$LadderDynamicExpectedGuid = '',
+    [string]$LadderDynamicExpectedTypeGuid = '',
+
+    # Fase L1, probe 18 - canal Extender. Defaults VAZIOS pelo mesmo motivo
+    # dos -LadderDynamic*: identidade explicita e exigida no modo
+    # supervisionado.
+    [switch]$ProbeLadderExtenderSurface,
+    [string]$LadderExtenderTargetNodeId = '',
+    [string]$LadderExtenderExpectedName = '',
+    [string]$LadderExtenderExpectedGuid = '',
+    [string]$LadderExtenderExpectedTypeGuid = '',
+
+    # Fase L1, probe 19 - assinatura de export_xml (SEM invocar). Defaults
+    # vazios pelo mesmo motivo dos anteriores.
+    [switch]$ProbePLCopenExportSignature,
+    [string]$PLCopenTargetNodeId = '',
+    [string]$PLCopenExpectedName = '',
+    [string]$PLCopenExpectedGuid = '',
+    [string]$PLCopenExpectedTypeGuid = '',
+    [switch]$NoInspectActiveApplication,
+
+    # Fase L1 - EXPORTACAO CONTROLADA. Primeira operacao que ESCREVE em
+    # disco (dentro do diretorio descartavel da run, nunca no projeto).
+    [switch]$ExportPLCopenXml,
+    [string]$ExportTargetNodeId = '',
+    [string]$ExportExpectedName = '',
+    [string]$ExportExpectedGuid = '',
+    [string]$ExportExpectedTypeGuid = '',
+    [string]$ExportTargetLeafName = 'pou-export',
 
     [switch]$Execute
 )
@@ -96,7 +134,32 @@ if ($copyFull -eq $origFull) { Fail '-ProjectCopy aponta para o PROJETO ORIGINAL
 Write-Host "[OK] Copia          : $copyFull"
 Write-Host "[OK] SHA256 antes   : $((Get-FileHash -LiteralPath $copyFull -Algorithm SHA256).Hash)"
 
-$running = @(Get-Process -Name 'MT8500*' -ErrorAction SilentlyContinue)
+# Deteccao de processo aberto. Em execucao real (-Execute) SEMPRE consulta o
+# processo de verdade via Get-Process -- esse ramo do `if` e estruturalmente
+# inalcancavel com -Execute, entao nao ha combinacao possivel que deixe
+# -Execute + lista simulada colarem juntos. A variavel de ambiente
+# MASTERTOOL_BRIDGE_FAKE_PROCESS_LIST so e considerada em ENSAIO, para tornar
+# os testes deste wrapper deterministicos (independentes de haver ou nao
+# MasterTool aberto na maquina que roda a suite). Formato: lista separada por
+# ';', cada item '<nome-da-imagem>:<pid>'. String vazia = nenhum processo.
+$running = @(if (-not $Execute -and $null -ne $env:MASTERTOOL_BRIDGE_FAKE_PROCESS_LIST) {
+    $raw = $env:MASTERTOOL_BRIDGE_FAKE_PROCESS_LIST
+    if ($raw -eq '') {
+        @()
+    } else {
+        $parsed = @()
+        foreach ($item in ($raw -split ';')) {
+            if ($item -notmatch '^[^:]+:\d+$') {
+                Fail "MASTERTOOL_BRIDGE_FAKE_PROCESS_LIST malformada: '$item' (esperado '<nome>:<pid>')."
+            }
+            $parts = $item -split ':'
+            $parsed += [pscustomobject]@{ Id = [int]$parts[1] }
+        }
+        $parsed
+    }
+} else {
+    Get-Process -Name 'MT8500*' -ErrorAction SilentlyContinue
+})
 if ($running.Count -gt 0) {
     $ids = ($running | ForEach-Object { $_.Id }) -join ', '
     Fail "Ha instancia(s) do MasterTool aberta(s) (PID: $ids). Feche antes de rodar."
@@ -117,6 +180,80 @@ if ($ProbeLadderSurface) {
     Write-Host "[OK] Alvo Ladder    : $LadderTargetNodeId ($LadderExpectedName)"
 }
 
+if ($ProbeLadderDynamicSurface) {
+    $faltandoDin = @()
+    if ([string]::IsNullOrWhiteSpace($LadderDynamicTargetNodeId)) { $faltandoDin += '-LadderDynamicTargetNodeId' }
+    if ([string]::IsNullOrWhiteSpace($LadderDynamicExpectedName)) { $faltandoDin += '-LadderDynamicExpectedName' }
+    if ([string]::IsNullOrWhiteSpace($LadderDynamicExpectedGuid)) { $faltandoDin += '-LadderDynamicExpectedGuid' }
+    if ([string]::IsNullOrWhiteSpace($LadderDynamicExpectedTypeGuid)) { $faltandoDin += '-LadderDynamicExpectedTypeGuid' }
+    if ($faltandoDin.Count -gt 0) {
+        Fail ("-ProbeLadderDynamicSurface exige a identificacao completa do alvo. Faltando: " +
+              ($faltandoDin -join ', ') +
+              "`n            Sem default de identidade no modo supervisionado: os candidatos da Fase L0 compartilham o mesmo type_guid.")
+    }
+    Write-Host "[OK] Alvo Dinamico  : $LadderDynamicTargetNodeId ($LadderDynamicExpectedName)"
+}
+
+if ($ProbeLadderExtenderSurface) {
+    $faltandoExt = @()
+    if ([string]::IsNullOrWhiteSpace($LadderExtenderTargetNodeId)) { $faltandoExt += '-LadderExtenderTargetNodeId' }
+    if ([string]::IsNullOrWhiteSpace($LadderExtenderExpectedName)) { $faltandoExt += '-LadderExtenderExpectedName' }
+    if ([string]::IsNullOrWhiteSpace($LadderExtenderExpectedGuid)) { $faltandoExt += '-LadderExtenderExpectedGuid' }
+    if ([string]::IsNullOrWhiteSpace($LadderExtenderExpectedTypeGuid)) { $faltandoExt += '-LadderExtenderExpectedTypeGuid' }
+    if ($faltandoExt.Count -gt 0) {
+        Fail ("-ProbeLadderExtenderSurface exige a identificacao completa do alvo. Faltando: " +
+              ($faltandoExt -join ', ') +
+              "`n            Sem default de identidade no modo supervisionado.")
+    }
+    Write-Host "[OK] Alvo Extender  : $LadderExtenderTargetNodeId ($LadderExtenderExpectedName)"
+}
+
+if ($ProbePLCopenExportSignature) {
+    $faltandoPlc = @()
+    if ([string]::IsNullOrWhiteSpace($PLCopenTargetNodeId)) { $faltandoPlc += '-PLCopenTargetNodeId' }
+    if ([string]::IsNullOrWhiteSpace($PLCopenExpectedName)) { $faltandoPlc += '-PLCopenExpectedName' }
+    if ([string]::IsNullOrWhiteSpace($PLCopenExpectedGuid)) { $faltandoPlc += '-PLCopenExpectedGuid' }
+    if ([string]::IsNullOrWhiteSpace($PLCopenExpectedTypeGuid)) { $faltandoPlc += '-PLCopenExpectedTypeGuid' }
+    if ($faltandoPlc.Count -gt 0) {
+        Fail ("-ProbePLCopenExportSignature exige a identificacao completa do alvo. Faltando: " +
+              ($faltandoPlc -join ', ') +
+              "`n            Sem default de identidade no modo supervisionado.")
+    }
+    Write-Host "[OK] Alvo PLCopen   : $PLCopenTargetNodeId ($PLCopenExpectedName)"
+    Write-Host "[OK] Escopo App     : $(if ($NoInspectActiveApplication) { 'NAO inspecionado' } else { 'inspecionado' })"
+}
+
+if ($ExportPLCopenXml) {
+    $faltandoExp = @()
+    if ([string]::IsNullOrWhiteSpace($ExportTargetNodeId)) { $faltandoExp += '-ExportTargetNodeId' }
+    if ([string]::IsNullOrWhiteSpace($ExportExpectedName)) { $faltandoExp += '-ExportExpectedName' }
+    if ([string]::IsNullOrWhiteSpace($ExportExpectedGuid)) { $faltandoExp += '-ExportExpectedGuid' }
+    if ([string]::IsNullOrWhiteSpace($ExportExpectedTypeGuid)) { $faltandoExp += '-ExportExpectedTypeGuid' }
+    if ($faltandoExp.Count -gt 0) {
+        Fail ("-ExportPLCopenXml exige a identificacao completa do alvo. Faltando: " +
+              ($faltandoExp -join ', ') +
+              "`n            Esta operacao ESCREVE em disco; nenhum default de identidade e aceito.")
+    }
+    if ($ExportTargetLeafName -match '[\/:]' -or $ExportTargetLeafName -eq '..' -or $ExportTargetLeafName -eq '.') {
+        Fail "-ExportTargetLeafName deve ser um nome SIMPLES (sem separador, drive ou '..'): '$ExportTargetLeafName'"
+    }
+    Write-Host "[OK] Exportacao     : $ExportTargetNodeId ($ExportExpectedName) -> leaf '$ExportTargetLeafName'"
+    Write-Host "[AVISO] Esta operacao ESCREVE em disco, dentro do diretorio da run." -ForegroundColor Yellow
+}
+
+# Exclusao mutua: canais distintos, gates proprios, vereditos que nao podem
+# competir sob um unico status. Bloqueado aqui alem de na CLI e no runner.
+$probesLigados = @()
+if ($ProbeLadderSurface) { $probesLigados += '-ProbeLadderSurface' }
+if ($ProbeLadderDynamicSurface) { $probesLigados += '-ProbeLadderDynamicSurface' }
+if ($ProbeLadderExtenderSurface) { $probesLigados += '-ProbeLadderExtenderSurface' }
+if ($ProbePLCopenExportSignature) { $probesLigados += '-ProbePLCopenExportSignature' }
+if ($ExportPLCopenXml) { $probesLigados += '-ExportPLCopenXml' }
+if ($probesLigados.Count -gt 1) {
+    Fail ("Mais de um probe Ladder na mesma run: " + ($probesLigados -join ', ') +
+          "`n            Cada probe investiga um canal distinto; rode um por vez.")
+}
+
 $cliArgs = @(
     '-m', 'mastertool_bridge', 'supervised-snapshot',
     '--project-copy', $copyFull,
@@ -135,6 +272,44 @@ if ($ProbeLadderSurface) {
         '--ladder-expected-name', $LadderExpectedName,
         '--ladder-expected-guid', $LadderExpectedGuid,
         '--ladder-expected-type-guid', $LadderExpectedTypeGuid
+    )
+}
+if ($ProbeLadderDynamicSurface) {
+    $cliArgs += @(
+        '--probe-ladder-dynamic-surface',
+        '--ladder-dynamic-target-node-id', $LadderDynamicTargetNodeId,
+        '--ladder-dynamic-expected-name', $LadderDynamicExpectedName,
+        '--ladder-dynamic-expected-guid', $LadderDynamicExpectedGuid,
+        '--ladder-dynamic-expected-type-guid', $LadderDynamicExpectedTypeGuid
+    )
+}
+if ($ProbeLadderExtenderSurface) {
+    $cliArgs += @(
+        '--probe-ladder-extender-surface',
+        '--ladder-extender-target-node-id', $LadderExtenderTargetNodeId,
+        '--ladder-extender-expected-name', $LadderExtenderExpectedName,
+        '--ladder-extender-expected-guid', $LadderExtenderExpectedGuid,
+        '--ladder-extender-expected-type-guid', $LadderExtenderExpectedTypeGuid
+    )
+}
+if ($ProbePLCopenExportSignature) {
+    $cliArgs += @(
+        '--probe-plcopen-export-signature',
+        '--plcopen-target-node-id', $PLCopenTargetNodeId,
+        '--plcopen-expected-name', $PLCopenExpectedName,
+        '--plcopen-expected-guid', $PLCopenExpectedGuid,
+        '--plcopen-expected-type-guid', $PLCopenExpectedTypeGuid
+    )
+    if ($NoInspectActiveApplication) { $cliArgs += '--no-inspect-active-application' }
+}
+if ($ExportPLCopenXml) {
+    $cliArgs += @(
+        '--export-plcopen-xml',
+        '--export-target-node-id', $ExportTargetNodeId,
+        '--export-expected-name', $ExportExpectedName,
+        '--export-expected-guid', $ExportExpectedGuid,
+        '--export-expected-type-guid', $ExportExpectedTypeGuid,
+        '--export-target-leaf-name', $ExportTargetLeafName
     )
 }
 

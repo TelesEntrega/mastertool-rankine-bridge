@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from mastertool_bridge import __version__
+from mastertool_bridge.automation.run_states import STATE_COMPLETED
 from mastertool_bridge.exceptions import BridgeError, ValidationError
 from mastertool_bridge.logging_config import setup_logging
 from mastertool_bridge.utils.json_io import write_json
@@ -219,6 +220,96 @@ def cmd_supervised_snapshot(args) -> int:
                   "(ver docs/16-supervised-runner-contract.md, seção 3.1).")
             return 2
 
+    # Mesma guarda para o probe 17. Deliberadamente separada da do probe 16:
+    # as duas operacoes sao independentes e podem ser ligadas isoladamente,
+    # entao uma checagem compartilhada esconderia qual das duas esta
+    # incompleta.
+    if args.probe_ladder_dynamic_surface:
+        faltando = [
+            flag for flag, valor in (
+                ("--ladder-dynamic-target-node-id", args.ladder_dynamic_target_node_id),
+                ("--ladder-dynamic-expected-name", args.ladder_dynamic_expected_name),
+                ("--ladder-dynamic-expected-guid", args.ladder_dynamic_expected_guid),
+                ("--ladder-dynamic-expected-type-guid", args.ladder_dynamic_expected_type_guid),
+            ) if not (valor or "").strip()
+        ]
+        if faltando:
+            print("erro: --probe-ladder-dynamic-surface exige a identificacao completa "
+                  "do alvo. Faltando: " + ", ".join(faltando))
+            print("Os 4 campos sao exigidos juntos: os candidatos da Fase L0 "
+                  "compartilham o mesmo type_guid, entao nenhum campo isolado "
+                  "identifica o alvo. No modo supervisionado nao ha default de "
+                  "identidade (ver docs/16-supervised-runner-contract.md, secao 3.1).")
+            return 2
+
+    if args.probe_ladder_extender_surface:
+        faltando = [
+            flag for flag, valor in (
+                ("--ladder-extender-target-node-id", args.ladder_extender_target_node_id),
+                ("--ladder-extender-expected-name", args.ladder_extender_expected_name),
+                ("--ladder-extender-expected-guid", args.ladder_extender_expected_guid),
+                ("--ladder-extender-expected-type-guid", args.ladder_extender_expected_type_guid),
+            ) if not (valor or "").strip()
+        ]
+        if faltando:
+            print("erro: --probe-ladder-extender-surface exige a identificacao completa "
+                  "do alvo. Faltando: " + ", ".join(faltando))
+            print("Os 4 campos sao exigidos juntos e nao ha default de identidade no "
+                  "modo supervisionado (ver docs/16-supervised-runner-contract.md, secao 3.1).")
+            return 2
+
+    if args.probe_plcopen_export_signature:
+        faltando = [
+            flag for flag, valor in (
+                ("--plcopen-target-node-id", args.plcopen_target_node_id),
+                ("--plcopen-expected-name", args.plcopen_expected_name),
+                ("--plcopen-expected-guid", args.plcopen_expected_guid),
+                ("--plcopen-expected-type-guid", args.plcopen_expected_type_guid),
+            ) if not (valor or "").strip()
+        ]
+        if faltando:
+            print("erro: --probe-plcopen-export-signature exige a identificacao completa "
+                  "do alvo. Faltando: " + ", ".join(faltando))
+            print("Os 4 campos sao exigidos juntos e nao ha default de identidade no "
+                  "modo supervisionado.")
+            return 2
+
+    if args.export_plcopen_xml:
+        faltando = [
+            flag for flag, valor in (
+                ("--export-target-node-id", args.export_target_node_id),
+                ("--export-expected-name", args.export_expected_name),
+                ("--export-expected-guid", args.export_expected_guid),
+                ("--export-expected-type-guid", args.export_expected_type_guid),
+            ) if not (valor or "").strip()
+        ]
+        if faltando:
+            print("erro: --export-plcopen-xml exige a identificacao completa do alvo. "
+                  "Faltando: " + ", ".join(faltando))
+            print("Nenhum default de identidade e aceito no modo supervisionado -- esta "
+                  "operacao ESCREVE em disco.")
+            return 2
+
+    # As CINCO operacoes de investigacao sao mutuamente exclusivas numa run: canais
+    # distintos, gates proprios, vereditos que nao podem competir sob um
+    # unico status. Recusado aqui, no ponto mais barato, alem de no
+    # RunConfig e no runner interno.
+    _probes_ligados = [
+        nome for nome, ligado in (
+            ("--probe-ladder-surface", args.probe_ladder_surface),
+            ("--probe-ladder-dynamic-surface", args.probe_ladder_dynamic_surface),
+            ("--probe-ladder-extender-surface", args.probe_ladder_extender_surface),
+            ("--probe-plcopen-export-signature", args.probe_plcopen_export_signature),
+            ("--export-plcopen-xml", args.export_plcopen_xml),
+        ) if ligado
+    ]
+    if len(_probes_ligados) > 1:
+        print("erro: mais de um probe de investigacao ligado na mesma run: "
+              + ", ".join(_probes_ligados))
+        print("Cada probe investiga um canal distinto e tem gate de validade "
+              "proprio; rode um por vez.")
+        return 2
+
     repo_root = _Path(args.repo_root) if args.repo_root else _Path(__file__).resolve().parents[2]
     mastertool_scripts_dir = (
         _Path(args.mastertool_scripts_dir) if args.mastertool_scripts_dir
@@ -228,6 +319,10 @@ def cmd_supervised_snapshot(args) -> int:
         scan_project_tree=not args.no_scan,
         export_text=not args.no_export_text,
         probe_ladder_surface=args.probe_ladder_surface,
+        probe_ladder_dynamic_surface=args.probe_ladder_dynamic_surface,
+        probe_ladder_extender_surface=args.probe_ladder_extender_surface,
+        probe_plcopen_export_signature=args.probe_plcopen_export_signature,
+        export_plcopen_xml=args.export_plcopen_xml,
     )
 
     ladder_probe = None
@@ -237,6 +332,47 @@ def cmd_supervised_snapshot(args) -> int:
             "expected_name": args.ladder_expected_name,
             "expected_guid": args.ladder_expected_guid,
             "expected_type_guid": args.ladder_expected_type_guid,
+        }
+
+    ladder_dynamic_probe = None
+    if args.probe_ladder_dynamic_surface:
+        ladder_dynamic_probe = {
+            "target_node_id": args.ladder_dynamic_target_node_id,
+            "expected_name": args.ladder_dynamic_expected_name,
+            "expected_guid": args.ladder_dynamic_expected_guid,
+            "expected_type_guid": args.ladder_dynamic_expected_type_guid,
+        }
+
+    ladder_extender_probe = None
+    if args.probe_ladder_extender_surface:
+        ladder_extender_probe = {
+            "target_node_id": args.ladder_extender_target_node_id,
+            "expected_name": args.ladder_extender_expected_name,
+            "expected_guid": args.ladder_extender_expected_guid,
+            "expected_type_guid": args.ladder_extender_expected_type_guid,
+        }
+
+    plcopen_export_signature_probe = None
+    if args.probe_plcopen_export_signature:
+        plcopen_export_signature_probe = {
+            "target_node_id": args.plcopen_target_node_id,
+            "expected_name": args.plcopen_expected_name,
+            "expected_guid": args.plcopen_expected_guid,
+            "expected_type_guid": args.plcopen_expected_type_guid,
+            "inspect_active_application": not args.no_inspect_active_application,
+        }
+
+    plcopen_export = None
+    if args.export_plcopen_xml:
+        plcopen_export = {
+            "target_node_id": args.export_target_node_id,
+            "expected_name": args.export_expected_name,
+            "expected_guid": args.export_expected_guid,
+            "expected_type_guid": args.export_expected_type_guid,
+            "target_leaf_name": args.export_target_leaf_name,
+            "recursive": False,
+            "export_folder_structure": False,
+            "plain_text": False,
         }
 
     result = orchestrate_run(
@@ -253,19 +389,23 @@ def cmd_supervised_snapshot(args) -> int:
         run_index=not args.no_index,
         operations=operations,
         ladder_probe=ladder_probe,
+        ladder_dynamic_probe=ladder_dynamic_probe,
+        ladder_extender_probe=ladder_extender_probe,
+        plcopen_export_signature_probe=plcopen_export_signature_probe,
+        plcopen_export=plcopen_export,
     )
 
     report = result.to_dict()
     if args.output:
         write_json(Path(args.output), report)
     _print_json(report)
-    return 0 if result.final_state == "completed" else 1
+    return 0 if result.final_state == STATE_COMPLETED else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mastertool-bridge",
-        description=("Camada externa do mastertool-ai-bridge (somente leitura: "
+        description=("Camada externa do mastertool-rankine-bridge (somente leitura: "
                      "lê exports; nunca toca o MasterTool nem o CLP)."))
     parser.add_argument("--version", action="version",
                         version=f"%(prog)s {__version__}")
@@ -387,6 +527,61 @@ def build_parser() -> argparse.ArgumentParser:
                    help="ladder_probe.expected_guid — obrigatório com --probe-ladder-surface.")
     p.add_argument("--ladder-expected-type-guid",
                    help="ladder_probe.expected_type_guid — obrigatório com --probe-ladder-surface.")
+    p.add_argument("--probe-ladder-dynamic-surface", action="store_true",
+                   help=("Liga operations.probe_ladder_dynamic_surface (Fase L1 — sondagem "
+                         "da superficie DINAMICA via dir()/hasattr(), complementar a "
+                         "reflexao CLR do probe 16). Exige os quatro --ladder-dynamic-* "
+                         "abaixo. Ver docs/16-supervised-runner-contract.md secao 3.1."))
+    p.add_argument("--ladder-dynamic-target-node-id",
+                   help="ladder_dynamic_probe.target_node_id — obrigatorio com --probe-ladder-dynamic-surface.")
+    p.add_argument("--ladder-dynamic-expected-name",
+                   help="ladder_dynamic_probe.expected_name — obrigatorio com --probe-ladder-dynamic-surface.")
+    p.add_argument("--ladder-dynamic-expected-guid",
+                   help="ladder_dynamic_probe.expected_guid — obrigatorio com --probe-ladder-dynamic-surface.")
+    p.add_argument("--ladder-dynamic-expected-type-guid",
+                   help="ladder_dynamic_probe.expected_type_guid — obrigatorio com --probe-ladder-dynamic-surface.")
+    p.add_argument("--probe-ladder-extender-surface", action="store_true",
+                   help=("Liga operations.probe_ladder_extender_surface (Fase L1 -- canal "
+                         "Extender/IExtendedObject: providers e descriptors). Exige os "
+                         "quatro --ladder-extender-* abaixo. Mutuamente exclusivo com os "
+                         "outros probes Ladder."))
+    p.add_argument("--ladder-extender-target-node-id",
+                   help="ladder_extender_probe.target_node_id -- obrigatorio com --probe-ladder-extender-surface.")
+    p.add_argument("--ladder-extender-expected-name",
+                   help="ladder_extender_probe.expected_name -- obrigatorio com --probe-ladder-extender-surface.")
+    p.add_argument("--ladder-extender-expected-guid",
+                   help="ladder_extender_probe.expected_guid -- obrigatorio com --probe-ladder-extender-surface.")
+    p.add_argument("--ladder-extender-expected-type-guid",
+                   help="ladder_extender_probe.expected_type_guid -- obrigatorio com --probe-ladder-extender-surface.")
+    p.add_argument("--probe-plcopen-export-signature", action="store_true",
+                   help=("Liga operations.probe_plcopen_export_signature (Fase L1 -- reflexao "
+                         "da assinatura COMPLETA de export_xml, SEM invoca-lo). Exige os "
+                         "quatro --plcopen-* abaixo. Mutuamente exclusivo com os outros probes."))
+    p.add_argument("--plcopen-target-node-id",
+                   help="plcopen_export_signature_probe.target_node_id -- obrigatorio.")
+    p.add_argument("--plcopen-expected-name",
+                   help="plcopen_export_signature_probe.expected_name -- obrigatorio.")
+    p.add_argument("--plcopen-expected-guid",
+                   help="plcopen_export_signature_probe.expected_guid -- obrigatorio.")
+    p.add_argument("--plcopen-expected-type-guid",
+                   help="plcopen_export_signature_probe.expected_type_guid -- obrigatorio.")
+    p.add_argument("--no-inspect-active-application", action="store_true",
+                   help=("Pula a reflexao do escopo Application. O artefato registra "
+                         "attempted=false, NUNCA found=false -- 'nao procurei' e diferente "
+                         "de 'nao existe'."))
+    p.add_argument("--export-plcopen-xml", action="store_true",
+                   help=("Liga operations.export_plcopen_xml (Fase L1 -- UMA invocacao de "
+                         "export_xml para diretorio descartavel autorizado). ESCREVE em "
+                         "disco. Exige os quatro --export-* abaixo. Mutuamente exclusivo "
+                         "com os probes de investigacao."))
+    p.add_argument("--export-target-node-id", help="plcopen_export.target_node_id -- obrigatorio.")
+    p.add_argument("--export-expected-name", help="plcopen_export.expected_name -- obrigatorio.")
+    p.add_argument("--export-expected-guid", help="plcopen_export.expected_guid -- obrigatorio.")
+    p.add_argument("--export-expected-type-guid",
+                   help="plcopen_export.expected_type_guid -- obrigatorio.")
+    p.add_argument("--export-target-leaf-name", default="pou-export",
+                   help=("Nome SIMPLES do alvo dentro de export-root (sem separador, "
+                         "drive ou '..'). Deve nao existir antes da chamada."))
     p.add_argument("--output", help="Grava o relatório consolidado neste arquivo JSON.")
     p.set_defaults(func=cmd_supervised_snapshot, _parser=p)
 

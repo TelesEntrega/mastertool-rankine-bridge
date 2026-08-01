@@ -27,6 +27,10 @@ KNOWN_OPERATION_KEYS = frozenset({
     "export_text",
     "inventory_graphic_objects",
     "probe_ladder_surface",
+    "probe_ladder_dynamic_surface",
+    "probe_ladder_extender_surface",
+    "probe_plcopen_export_signature",
+    "export_plcopen_xml",
     "build",
     "save",
     "online",
@@ -57,6 +61,10 @@ class RunOperations:
     export_text: bool = True
     inventory_graphic_objects: bool = False
     probe_ladder_surface: bool = False
+    probe_ladder_dynamic_surface: bool = False
+    probe_ladder_extender_surface: bool = False
+    probe_plcopen_export_signature: bool = False
+    export_plcopen_xml: bool = False
     build: bool = False
     save: bool = False
     online: bool = False
@@ -86,6 +94,10 @@ class RunOperations:
             "export_text": self.export_text,
             "inventory_graphic_objects": self.inventory_graphic_objects,
             "probe_ladder_surface": self.probe_ladder_surface,
+            "probe_ladder_dynamic_surface": self.probe_ladder_dynamic_surface,
+            "probe_ladder_extender_surface": self.probe_ladder_extender_surface,
+            "probe_plcopen_export_signature": self.probe_plcopen_export_signature,
+            "export_plcopen_xml": self.export_plcopen_xml,
             "build": self.build,
             "save": self.save,
             "online": self.online,
@@ -131,6 +143,111 @@ class LadderProbeConfig:
 
 
 @dataclass(frozen=True)
+class PlcopenExportSignatureProbeConfig:
+    """Seção `plcopen_export_signature_probe`. Mesmos quatro campos de
+    identidade dos probes Ladder MAIS `inspect_active_application` — por
+    isso não reutiliza `LadderProbeConfig`, que valida exatamente quatro
+    strings. Um quinto campo aceito e silenciosamente ignorado seria o mesmo
+    defeito que `KNOWN_OPERATION_KEYS` existe para impedir."""
+
+    target_node_id: str
+    expected_name: str
+    expected_guid: str
+    expected_type_guid: str
+    inspect_active_application: bool = True
+
+    def __post_init__(self) -> None:
+        required = {
+            "target_node_id": self.target_node_id,
+            "expected_name": self.expected_name,
+            "expected_guid": self.expected_guid,
+            "expected_type_guid": self.expected_type_guid,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise ConfigValidationError(
+                "plcopen_export_signature_probe com campo(s) obrigatório(s) vazio(s): "
+                + ", ".join(missing))
+        # Booleano ESTRITO: 0/1/"true" fariam a config parecer válida com um
+        # valor que não expressa a intenção.
+        if not isinstance(self.inspect_active_application, bool):
+            raise ConfigValidationError(
+                "plcopen_export_signature_probe.inspect_active_application deve ser "
+                f"booleano true/false (recebido: {self.inspect_active_application!r})")
+
+    def to_dict(self) -> dict:
+        return {
+            "target_node_id": self.target_node_id,
+            "expected_name": self.expected_name,
+            "expected_guid": self.expected_guid,
+            "expected_type_guid": self.expected_type_guid,
+            "inspect_active_application": self.inspect_active_application,
+        }
+
+
+@dataclass(frozen=True)
+class PlcopenExportConfig:
+    """Seção `plcopen_export`. Os três booleanos existem para AUDITORIA — um
+    `run-config.json` arquivado precisa dizer com que argumentos a exportação
+    correu — e **não** para abrir matriz de execução: qualquer valor
+    diferente de `False` reprova. Uma combinação nunca testada não pode
+    entrar em produção por alguém editar o JSON."""
+
+    target_node_id: str
+    expected_name: str
+    expected_guid: str
+    expected_type_guid: str
+    target_leaf_name: str
+    recursive: bool = False
+    export_folder_structure: bool = False
+    plain_text: bool = False
+
+    def __post_init__(self) -> None:
+        required = {
+            "target_node_id": self.target_node_id,
+            "expected_name": self.expected_name,
+            "expected_guid": self.expected_guid,
+            "expected_type_guid": self.expected_type_guid,
+            "target_leaf_name": self.target_leaf_name,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise ConfigValidationError(
+                "plcopen_export com campo(s) obrigatório(s) vazio(s): "
+                + ", ".join(missing))
+
+        # `target_leaf_name` é nome SIMPLES. A travessia é barrada aqui, no
+        # host, além de no probe: o caminho mais barato de recusar é o que
+        # nunca chega perto do MasterTool.
+        leaf = self.target_leaf_name
+        if ("/" in leaf or "\\" in leaf or leaf in (".", "..")
+                or ":" in leaf or leaf.startswith("~")):
+            raise ConfigValidationError(
+                f"plcopen_export.target_leaf_name deve ser um nome simples, sem "
+                f"separador, drive ou '..' (recebido: {leaf!r})")
+
+        for name in ("recursive", "export_folder_structure", "plain_text"):
+            value = getattr(self, name)
+            if value is not False:
+                raise ConfigValidationError(
+                    f"plcopen_export.{name} deve ser exatamente False nesta versão "
+                    f"(recebido: {value!r}) — os três booleanos são de auditoria, "
+                    "não abrem matriz de execução.")
+
+    def to_dict(self) -> dict:
+        return {
+            "target_node_id": self.target_node_id,
+            "expected_name": self.expected_name,
+            "expected_guid": self.expected_guid,
+            "expected_type_guid": self.expected_type_guid,
+            "recursive": self.recursive,
+            "export_folder_structure": self.export_folder_structure,
+            "plain_text": self.plain_text,
+            "target_leaf_name": self.target_leaf_name,
+        }
+
+
+@dataclass(frozen=True)
 class RunConfig:
     """Corresponde EXATAMENTE às chaves da seção 2 do contrato (mais a seção
     `ladder_probe` opcional da seção 3.1). Nenhum campo extra, nenhum campo
@@ -150,6 +267,15 @@ class RunConfig:
     allowed_output_root: str
     operations: RunOperations
     ladder_probe: LadderProbeConfig | None = None
+    # Seção INDEPENDENTE de `ladder_probe` (probe 17, contrato seção 3.1):
+    # reutiliza a mesma dataclass `LadderProbeConfig` (mesmos 4 campos
+    # obrigatórios) porque a identidade de alvo é o mesmo formato — mas é
+    # uma seção própria, ligada por uma flag própria, para poder ser
+    # habilitada separadamente do probe 16.
+    ladder_dynamic_probe: LadderProbeConfig | None = None
+    ladder_extender_probe: LadderProbeConfig | None = None
+    plcopen_export_signature_probe: PlcopenExportSignatureProbeConfig | None = None
+    plcopen_export: PlcopenExportConfig | None = None
     schema_version: int = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -180,6 +306,11 @@ class RunConfig:
             raise ConfigValidationError(
                 "ladder_probe deve ser LadderProbeConfig (já validada); "
                 "não construa run-config.json com um dict cru.")
+        if self.ladder_dynamic_probe is not None and not isinstance(
+                self.ladder_dynamic_probe, LadderProbeConfig):
+            raise ConfigValidationError(
+                "ladder_dynamic_probe deve ser LadderProbeConfig (já "
+                "validada); não construa run-config.json com um dict cru.")
 
         # Coerência nas duas direções (contrato, seção 3.1): operação ligada
         # sem a seção -> reprova; seção presente com a operação desligada ->
@@ -192,6 +323,73 @@ class RunConfig:
             raise ConfigValidationError(
                 "ladder_probe presente mas operations.probe_ladder_surface="
                 "False — configuração incoerente, fail-closed.")
+
+        # Mesma regra, seção independente do probe 17.
+        if self.operations.probe_ladder_dynamic_surface and self.ladder_dynamic_probe is None:
+            raise ConfigValidationError(
+                "operations.probe_ladder_dynamic_surface=True exige a seção "
+                "ladder_dynamic_probe, que está ausente.")
+        if self.ladder_dynamic_probe is not None and not self.operations.probe_ladder_dynamic_surface:
+            raise ConfigValidationError(
+                "ladder_dynamic_probe presente mas "
+                "operations.probe_ladder_dynamic_surface=False — "
+                "configuração incoerente, fail-closed.")
+
+        # Mesma regra, seção independente do probe 18.
+        if self.operations.probe_ladder_extender_surface and self.ladder_extender_probe is None:
+            raise ConfigValidationError(
+                "operations.probe_ladder_extender_surface=True exige a seção "
+                "ladder_extender_probe, que está ausente.")
+        if self.ladder_extender_probe is not None and not self.operations.probe_ladder_extender_surface:
+            raise ConfigValidationError(
+                "ladder_extender_probe presente mas "
+                "operations.probe_ladder_extender_surface=False — "
+                "configuração incoerente, fail-closed.")
+
+        # Mesma regra, seção independente do probe 19.
+        if (self.operations.probe_plcopen_export_signature
+                and self.plcopen_export_signature_probe is None):
+            raise ConfigValidationError(
+                "operations.probe_plcopen_export_signature=True exige a seção "
+                "plcopen_export_signature_probe, que está ausente.")
+        if (self.plcopen_export_signature_probe is not None
+                and not self.operations.probe_plcopen_export_signature):
+            raise ConfigValidationError(
+                "plcopen_export_signature_probe presente mas "
+                "operations.probe_plcopen_export_signature=False — "
+                "configuração incoerente, fail-closed.")
+
+        # Mesma regra, seção independente da exportação.
+        if self.operations.export_plcopen_xml and self.plcopen_export is None:
+            raise ConfigValidationError(
+                "operations.export_plcopen_xml=True exige a seção plcopen_export, "
+                "que está ausente.")
+        if self.plcopen_export is not None and not self.operations.export_plcopen_xml:
+            raise ConfigValidationError(
+                "plcopen_export presente mas operations.export_plcopen_xml=False — "
+                "configuração incoerente, fail-closed.")
+
+        # As cinco operações de investigação sobre o MESMO objeto.
+        # Combiná-los numa run produziria vereditos concorrentes sob um único
+        # status — ambiguidade justamente no registro de auditoria. O host
+        # recusa cedo, antes de gerar o `run-config.json`, para o operador não
+        # descobrir isso só quando o runner interno reprovar.
+        enabled_probes = [
+            name for name, on in (
+                ("probe_ladder_surface", self.operations.probe_ladder_surface),
+                ("probe_ladder_dynamic_surface", self.operations.probe_ladder_dynamic_surface),
+                ("probe_ladder_extender_surface", self.operations.probe_ladder_extender_surface),
+                ("probe_plcopen_export_signature",
+                 self.operations.probe_plcopen_export_signature),
+                ("export_plcopen_xml", self.operations.export_plcopen_xml),
+            ) if on
+        ]
+        if len(enabled_probes) > 1:
+            raise ConfigValidationError(
+                "mais de um probe Ladder ligado na mesma run: "
+                + ", ".join(sorted(enabled_probes))
+                + ". Cada probe investiga um canal distinto e tem gate de "
+                "validade próprio; rode um por vez.")
 
     def to_dict(self) -> dict:
         """Produz EXATAMENTE as chaves da seção 2 do contrato — nomes e
@@ -215,4 +413,12 @@ class RunConfig:
         }
         if self.ladder_probe is not None:
             data["ladder_probe"] = self.ladder_probe.to_dict()
+        if self.ladder_dynamic_probe is not None:
+            data["ladder_dynamic_probe"] = self.ladder_dynamic_probe.to_dict()
+        if self.ladder_extender_probe is not None:
+            data["ladder_extender_probe"] = self.ladder_extender_probe.to_dict()
+        if self.plcopen_export_signature_probe is not None:
+            data["plcopen_export_signature_probe"] = self.plcopen_export_signature_probe.to_dict()
+        if self.plcopen_export is not None:
+            data["plcopen_export"] = self.plcopen_export.to_dict()
         return data

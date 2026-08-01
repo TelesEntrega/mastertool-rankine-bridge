@@ -1,4 +1,4 @@
-# Configuração padrão do mastertool-ai-bridge.
+# Configuração padrão do mastertool-rankine-bridge.
 # Valores de segurança aqui são o piso; config/safety-policy.yaml formaliza os bloqueios.
 
 project:

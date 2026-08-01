@@ -1,0 +1,33 @@
+{
+  "_comment": "Template SINTETICO do plano de W1.1. Nao e o plano real: nao ha caminho, hash nem identidade de maquina aqui. O plano real vive FORA do repositorio, porque carrega caminhos operacionais. Este arquivo existe para que os testes tenham a forma do plano sem carregar dado de ninguem.",
+  "schema_version": "1.0",
+  "operation_id": "w1-1-create-gvl",
+  "phase": "W1_1_CREATE_GVL",
+  "gvl_name": "GVL_AI_TESTE",
+  "run_id": "<identificador-da-execucao>",
+  "input_project": {
+    "base_path": "<caminho-absoluto-sem-espaco-do-projeto-base>",
+    "path": "<caminho-absoluto-sem-espaco-da-copia-de-trabalho>",
+    "sha256": "<sha256-do-projeto-base-64-hex>"
+  },
+  "output_project": {
+    "path": "<caminho-absoluto-sem-espaco-do-arquivo-novo-inexistente>"
+  },
+  "artifacts_dir": "<diretorio-absoluto-sem-espaco-fora-do-repositorio>",
+  "container": {
+    "node_path": "root/<indices>",
+    "expected_name": "<nome-do-container>",
+    "expected_type_guid": "<type-guid-do-container>",
+    "resolved_by": "<run da varredura read-only do probe 21>"
+  },
+  "mastertool": {
+    "product": "MasterTool X",
+    "version": "<file-version-exata>",
+    "script_engine": "<versao-do-scriptengine>",
+    "install_root": "<raiz-da-instalacao>"
+  },
+  "operations": [
+    { "kind": "create_gvl", "name": "GVL_AI_TESTE" },
+    { "kind": "save_as", "path": "<mesmo-caminho-de-output_project.path>" }
+  ]
+}

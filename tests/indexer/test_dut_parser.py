@@ -24,7 +24,7 @@ def test_struct_com_membro_tipo_definido_pelo_usuario_texto_cru() -> None:
         "TYPE PrgValvulasExemplo :\n"
         "STRUCT\n"
         "\tAbre : BOOL;\n"
-        "\tPrgParametrosExemplo : PrgPrgParametrosExemploAuxExemplo;\n"
+        "\tPrgParametrosExemplo : PrgPrgPrgParametrosExemploExemploAuxExemplo;\n"
         "END_STRUCT\n"
         "END_TYPE\n"
     )
@@ -33,7 +33,7 @@ def test_struct_com_membro_tipo_definido_pelo_usuario_texto_cru() -> None:
     assert symbol is not None
     assert not diags.has_errors
     param_member = next(m for m in symbol.members if m.name == "PrgParametrosExemplo")
-    assert param_member.declared_type == "PrgPrgParametrosExemploAuxExemplo"
+    assert param_member.declared_type == "PrgPrgPrgParametrosExemploExemploAuxExemplo"
     assert param_member.is_array is False
 
 

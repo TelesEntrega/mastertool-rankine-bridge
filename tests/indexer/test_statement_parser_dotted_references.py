@@ -134,25 +134,31 @@ def test_incomplete_dotted_name_does_not_raise() -> None:
 
 
 def test_dotted_reference_location_and_end_location_positions() -> None:
-    text = "IF VarGlobaisExemplo.NomeDaVariavel THEN\n    y := 1;\nEND_IF;\n"
+    # Colunas derivadas da própria fixture, não fixadas. Um literal como `15`
+    # codifica o comprimento de `OWNER` sem dizer isso: renomear o
+    # identificador quebra a asserção num ponto que não tem relação aparente
+    # com a mudança, e a falha diz apenas "esperava 15" — nunca "o cálculo de
+    # coluna está errado". Derivar de `text.index()` mantém a asserção
+    # verificando o que interessa (a aritmética 1-based do parser) e a deixa
+    # imune ao nome escolhido.
+    OWNER = "VarGlobaisExemplo"
+    MEMBER = "NomeDaVariavel"
+    text = f"IF {OWNER}.{MEMBER} THEN\n    y := 1;\nEND_IF;\n"
     stmts, calls, refs, diags = parse_implementation(text, "f.st", "n11")
 
     condition_refs = [r for r in refs if r.context == "condition"]
     assert len(condition_refs) == 1
     ref = condition_refs[0]
-    assert ref.name == "VarGlobaisExemplo.NomeDaVariavel"
+    assert ref.name == f"{OWNER}.{MEMBER}"
 
-    # "IF VarGlobaisExemplo.NomeDaVariavel THEN" -> "VarGlobaisExemplo" começa na coluna 4
-    # (1-based: I=1,F=2,' '=3,V=4...), linha 1.
+    # `str.index` é 0-based e `column` é 1-based, daí o +1.
     assert ref.location.line == 1
-    assert ref.location.column == 4
+    assert ref.location.column == text.index(OWNER) + 1
 
     assert ref.end_location is not None
-    # "NomeDaVariavel" comeca logo apos "VarGlobaisExemplo." -- ou seja, na coluna
-    # inicial (4) mais o prefixo com o ponto. Derivado do proprio identificador em
-    # vez de fixado: um numero magico aqui so diz "mudou", nunca "por que".
+    # `end_location` aponta para o início do último segmento, depois do ponto.
     assert ref.end_location.line == 1
-    assert ref.end_location.column == 4 + len("VarGlobaisExemplo.")
+    assert ref.end_location.column == text.index(MEMBER) + 1
 
 
 def test_single_segment_reference_end_location_consistent() -> None:

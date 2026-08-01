@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/project_spec.schema.json",
+  "title": "project_spec — modelo declarativo do estado-alvo de um projeto MasterTool",
+  "description": "Descreve, de forma declarativa e determinística, os objetos IEC que uma sessão de escrita controlada deve produzir a partir de um template congelado. NÃO é o formato de persistência do MasterTool — é a entrada que src/mastertool_bridge/spec/validator.py valida offline, antes de qualquer sessão tocar o MasterTool. Linguagem é sempre identificada por GUID (Nullable<Guid> na API real); a string 'ST' nunca é aceita, porque passá-la seria inventar um parâmetro que a API não tem (docs/30 §'O GUID não viaja como texto').",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "template"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      }
+    },
+    "duts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dut" }
+    },
+    "gvls": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gvl" }
+    },
+    "functions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/function" }
+    },
+    "function_blocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/function_block" }
+    },
+    "programs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/program" }
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" }
+    },
+    "libraries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/library" }
+    }
+  },
+  "$defs": {
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guid"],
+      "description": "Identifica a linguagem IEC pelo GUID medido (ex.: ST = cc393387-a21c-4f68-a3e3-84c36951965d). Nunca a string 'ST' — o parâmetro real é Nullable<Guid>.",
+      "properties": {
+        "guid": { "type": "string" }
+      }
+    },
+    "dut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "declaration"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string", "enum": ["STRUCT", "ENUM"] },
+        "language": { "$ref": "#/$defs/language" },
+        "declaration": { "type": "string" },
+        "uses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "gvl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "declaration"],
+      "properties": {
+        "name": { "type": "string" },
+        "language": { "$ref": "#/$defs/language" },
+        "declaration": { "type": "string" },
+        "uses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "function": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "language", "declaration", "implementation", "return_type"],
+      "properties": {
+        "name": { "type": "string" },
+        "language": { "$ref": "#/$defs/language" },
+        "declaration": { "type": "string" },
+        "implementation": { "type": "string" },
+        "return_type": { "type": "string" },
+        "uses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "function_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "language", "declaration", "implementation"],
+      "properties": {
+        "name": { "type": "string" },
+        "language": { "$ref": "#/$defs/language" },
+        "declaration": { "type": "string" },
+        "implementation": { "type": "string" },
+        "uses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "language", "declaration", "implementation"],
+      "properties": {
+        "name": { "type": "string" },
+        "language": { "$ref": "#/$defs/language" },
+        "declaration": { "type": "string" },
+        "implementation": { "type": "string" },
+        "uses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "program_calls"],
+      "properties": {
+        "name": { "type": "string" },
+        "program_calls": { "type": "array", "items": { "type": "string" } },
+        "existing": {
+          "type": "boolean",
+          "description": "A task JA EXISTE no template e deve ser REUSADA, nunca criada. `MainTask` do TemplateExemplo v1 e assim, e foi o que todas as execucoes reais fizeram (docs/38, docs/39, docs/41). Default false: quem nao diz nada esta pedindo para criar, e criar task nunca foi exercido contra o produto -- o plano sai como nao executavel, por lacuna nomeada, em vez de aceito em silencio."
+        }
+      }
+    },
+    "library": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" }
+      }
+    }
+  }
+}

@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import subprocess
 import time
 from datetime import datetime
@@ -27,6 +28,8 @@ from typing import Callable
 from mastertool_bridge.automation.artifact_validation import validate_output_artifacts
 from mastertool_bridge.automation.cli_probe_verify import check_provenance
 from mastertool_bridge.automation.config_models import (
+    PlcopenExportConfig,
+    PlcopenExportSignatureProbeConfig,
     LadderProbeConfig,
     RunConfig,
     RunOperations,
@@ -35,6 +38,16 @@ from mastertool_bridge.automation.result_models import (
     IndexResult,
     ProvenanceCheckResult,
     SupervisedRunResult,
+)
+from mastertool_bridge.automation.plcopen_export_analysis import (
+    ExportAnalysisError,
+    analyze_export_root,
+    write_analysis,
+)
+from mastertool_bridge.automation.run_states import (
+    STATE_COMPLETED,
+    STATE_FAILED,
+    STATE_NEEDS_INTERACTION,
 )
 from mastertool_bridge.automation.run_workspace import create_run_workspace, read_status
 
@@ -212,6 +225,10 @@ def orchestrate_run(
     operations: RunOperations | None = None,
     probe_ladder_surface: bool = False,
     ladder_probe: dict | None = None,
+    ladder_dynamic_probe: dict | None = None,
+    ladder_extender_probe: dict | None = None,
+    plcopen_export_signature_probe: dict | None = None,
+    plcopen_export: dict | None = None,
     run_id: str | None = None,
     process_launcher: Callable[[str], "subprocess.Popen"] | None = None,
     process_lister: Callable[[], list[dict]] | None = None,
@@ -243,6 +260,26 @@ def orchestrate_run(
     if ladder_probe is not None:
         ladder_probe_config = LadderProbeConfig(**ladder_probe)
 
+    # Probe 17 reutiliza a MESMA dataclass: os 4 campos de identidade são
+    # idênticos. Uma classe gêmea só criaria dois lugares para a mesma
+    # validação divergirem.
+    ladder_dynamic_probe_config: LadderProbeConfig | None = None
+    if ladder_dynamic_probe is not None:
+        ladder_dynamic_probe_config = LadderProbeConfig(**ladder_dynamic_probe)
+
+    ladder_extender_probe_config: LadderProbeConfig | None = None
+    if ladder_extender_probe is not None:
+        ladder_extender_probe_config = LadderProbeConfig(**ladder_extender_probe)
+
+    plcopen_signature_config: PlcopenExportSignatureProbeConfig | None = None
+    if plcopen_export_signature_probe is not None:
+        plcopen_signature_config = PlcopenExportSignatureProbeConfig(
+            **plcopen_export_signature_probe)
+
+    plcopen_export_config: PlcopenExportConfig | None = None
+    if plcopen_export is not None:
+        plcopen_export_config = PlcopenExportConfig(**plcopen_export)
+
     project_copy_path = Path(project_copy)
     original_project_path = Path(original_project)
     run_id = run_id or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -256,7 +293,7 @@ def orchestrate_run(
     # ANTES de o MasterTool ser iniciado.
     if run_index and not operations.export_text:
         return _result(
-            run_id=run_id, final_state="failed",
+            run_id=run_id, final_state=STATE_FAILED,
             reasons=["run_index=True pedido mas operations.export_text=False "
                      "— configuração incoerente: sem export textual não há "
                      "o que indexar. Passe run_index=False (--no-index na "
@@ -266,13 +303,13 @@ def orchestrate_run(
     # --- 1. valida a cópia descartável -------------------------------------
     if not project_copy_path.is_file():
         return _result(
-            run_id=run_id, final_state="failed",
+            run_id=run_id, final_state=STATE_FAILED,
             reasons=[f"project_copy não encontrado: {project_copy_path}"],
             project_copy_path=str(project_copy_path), project_hash_before="")
 
     if _normalize_path(project_copy_path) == _normalize_path(original_project_path):
         return _result(
-            run_id=run_id, final_state="failed",
+            run_id=run_id, final_state=STATE_FAILED,
             reasons=["project_copy aponta para o PROJETO ORIGINAL — recusado, "
                      "fail-closed. Use sempre uma cópia descartável."],
             project_copy_path=str(project_copy_path), project_hash_before="")
@@ -284,7 +321,7 @@ def orchestrate_run(
         running = process_lister()
     except RuntimeError as exc:
         return _result(
-            run_id=run_id, final_state="failed",
+            run_id=run_id, final_state=STATE_FAILED,
             reasons=[str(exc)],
             project_copy_path=str(project_copy_path),
             project_hash_before=project_hash_before)
@@ -292,7 +329,7 @@ def orchestrate_run(
     if running:
         pids = ", ".join(str(r["pid"]) for r in running)
         return _result(
-            run_id=run_id, final_state="failed",
+            run_id=run_id, final_state=STATE_FAILED,
             reasons=[f"instância(s) do MasterTool já em execução (PID {pids}) — "
                      "recusado, fail-closed. Feche antes de rodar."],
             project_copy_path=str(project_copy_path),
@@ -318,9 +355,22 @@ def orchestrate_run(
         allowed_output_root=str(runs_root_path),
         operations=operations,
         ladder_probe=ladder_probe_config,
+        ladder_dynamic_probe=ladder_dynamic_probe_config,
+        ladder_extender_probe=ladder_extender_probe_config,
+        plcopen_export_signature_probe=plcopen_signature_config,
+        plcopen_export=plcopen_export_config,
     )
     run_dir = create_run_workspace(runs_root_path, run_id, config)
     bootstrap_path = run_dir / "bootstrap.py"
+
+    # `export-root` NAO e criado aqui. O runner interno exige `output_dir`
+    # VAZIO ao iniciar (guarda desde a Etapa B, protege contra sobrescrever
+    # uma run anterior) -- pre-criar qualquer coisa sob output/ fazia essa
+    # guarda abortar antes de tudo, como aconteceu na run 2026-07-28_11-37-05.
+    # Quem cria e o runner interno, DEPOIS de aprovar output_dir; o diretorio
+    # nasce vazio por construcao, garantia mais forte que criar antes e
+    # torcer para estar limpo. A separacao "quem cria nao e quem valida"
+    # continua: runner cria, probe 20 valida.
 
     # --- 4. monta o comando --------------------------------------------------
     # NUNCA --scriptargs (quebra em espaços, Etapa A) nem --noUI (fora de
@@ -336,7 +386,7 @@ def orchestrate_run(
     #
     # O MT8500 não reconhece a flag nesse formato e a ignora em silêncio — o
     # MasterTool abriu SEM projeto. O `--runscript` escapou por acidente: o
-    # caminho do run (`C:\mastertool-ai-bridge-runs\<run-id>\bootstrap.py`)
+    # caminho do run (`C:\mastertool-bridge-runs\<run-id>\bootstrap.py`)
     # não tem espaço, então não foi citado e funcionou.
     #
     # A forma comprovada em runtime (testes t3 e t4 da Etapa A, via
@@ -369,7 +419,7 @@ def orchestrate_run(
     if timed_out:
         # --- 6. timeout: NUNCA mata o processo ------------------------------
         return _result(
-            run_id=run_id, final_state="needs_interaction",
+            run_id=run_id, final_state=STATE_NEEDS_INTERACTION,
             reasons=[f"timeout de {timeout_seconds}s excedido sem o processo "
                      "encerrar — provável diálogo aguardando decisão humana. "
                      "Processo NÃO foi finalizado por este orquestrador."],
@@ -412,6 +462,87 @@ def orchestrate_run(
             "procedência não confirmada (IronPython 2.7 dentro do MasterTool): "
             f"{provenance.reason}")
 
+    # --- 10b. análise offline do XML exportado ----------------------------------
+    # Só aqui, depois de o MasterTool ter encerrado e os bytes estarem
+    # congelados em disco. Interpretar o XML dentro do IronPython decidiria o
+    # formato no mesmo processo que o produziu.
+    export_analysis_result: dict | None = None
+    if plcopen_export_config is not None:
+        plcopen_dir = output_dir / "plcopen-export"
+        export_root_dir = plcopen_dir / "export-root"
+
+        # PRECONDICOES: a analise so pode rodar sobre uma aquisicao que de
+        # fato ocorreu. Rodar sobre um export-root que nunca foi usado produz
+        # artefatos que PARECEM resultado e nao sao -- foi o que aconteceu na
+        # run 2026-07-28_11-37-05, que abortou antes da invocacao e mesmo
+        # assim gerou xml-files.json/export-analysis.json sobre diretorio
+        # vazio. "Nao houve o que analisar" e "analisei e nao achei nada" sao
+        # conclusoes opostas.
+        missing_preconditions: list[str] = []
+        internal_state = (internal_status or {}).get("state") if isinstance(
+            internal_status, dict) else None
+        if internal_state != STATE_COMPLETED:
+            missing_preconditions.append(f"internal_status.state={internal_state!r}")
+        for required in ("invocation.json", "created-artifacts.json",
+                         "safety-declaration.json"):
+            if not (plcopen_dir / required).is_file():
+                missing_preconditions.append(f"{required} ausente")
+        # `export_xml_called` vive na safety-declaration, NÃO na
+        # invocation.json — ler do arquivo errado fazia o gate pular sempre,
+        # inclusive numa aquisição perfeita (run 2026-07-28_13-48-23). As
+        # duas fontes são checadas porque dizem coisas diferentes: a
+        # declaração afirma que a chamada aconteceu, a invocação afirma que
+        # ela não lançou.
+        invoked = None
+        safety_path = plcopen_dir / "safety-declaration.json"
+        if safety_path.is_file():
+            try:
+                invoked = json.loads(
+                    safety_path.read_text(encoding="utf-8")).get("export_xml_called")
+            except ValueError:
+                missing_preconditions.append("safety-declaration.json ilegível")
+        if invoked is not True:
+            missing_preconditions.append(f"export_xml_called={invoked!r}")
+
+        invocation_path = plcopen_dir / "invocation.json"
+        if invocation_path.is_file():
+            try:
+                if json.loads(
+                        invocation_path.read_text(encoding="utf-8")
+                ).get("raised_exception") is True:
+                    missing_preconditions.append("invocation levantou exceção")
+            except ValueError:
+                missing_preconditions.append("invocation.json ilegível")
+
+        if missing_preconditions:
+            export_analysis_result = {
+                "attempted": False,
+                "skipped": True,
+                "reason": "acquisition_not_completed",
+                "missing_preconditions": missing_preconditions,
+            }
+        else:
+            try:
+                analysis = analyze_export_root(
+                    export_root_dir, plcopen_export_config.expected_name)
+                write_analysis(analysis, plcopen_dir)
+                export_analysis_result = {
+                    "attempted": True,
+                    "skipped": False,
+                    "export_result": analysis.result_case,
+                    "verdict": analysis.verdict,
+                    "xml_file_count": len(analysis.xml_files),
+                    "target_match": analysis.target_match,
+                }
+            except ExportAnalysisError as exc:
+                # Analise que era PARA rodar e nao rodou e falha OPERACIONAL,
+                # diferente de P2/P3/P4, que sao resultados cientificos
+                # legitimos de uma execucao correta.
+                export_analysis_result = {
+                    "attempted": True, "skipped": False,
+                    "export_result": None, "error": str(exc)}
+                reasons.append(f"análise offline do export falhou: {exc}")
+
     # --- 11. indexador Python 3 (opcional) --------------------------------------
     if run_index:
         index_result = _run_indexer(output_dir, expected_index_counts)
@@ -429,7 +560,7 @@ def orchestrate_run(
         index_result = IndexResult(attempted=False, skipped=True, ok=True,
                                     reason="--no-index solicitado")
 
-    final_state = "completed" if not reasons else "failed"
+    final_state = STATE_COMPLETED if not reasons else STATE_FAILED
 
     # --- 12. relatório consolidado -----------------------------------------------
     return _result(
@@ -493,14 +624,10 @@ def _find_export_dir(output_dir: Path) -> tuple[Path | None, list[str]]:
 
 def _summarize_index_counts(index: dict) -> dict:
     """Extrai do dict devolvido por `build_static_index()` os contadores
-    comparáveis com a baseline de validação interna: `symbols.json`,
-    `type-index.json` (`type_symbols`), `resolved-references.json`
-    (resolved/partially_resolved/unresolved), `resolved-calls.json`
-    (resolved/unresolved) e `read-write-index.json` (entradas totais).
-
-    Os valores de referência são específicos do projeto capturado e não são
-    fixados aqui: comparar contra números de outra planta reprovaria uma
-    execução correta.
+    comparáveis com a baseline `v0.1.0` (relatorios de validacao internos (nao publicados), seção 4): `symbols.json`=60, `type-index.json`
+    (`type_symbols`)=8, `resolved-references.json`=409 resolved/64
+    partially_resolved/61 unresolved, `resolved-calls.json`=3 resolved/9
+    unresolved, `read-write-index.json`=522 entradas totais.
 
     Nomes de chave usados abaixo são os REAIS devolvidos por
     `build_static_index()` (`symbols`, `type_symbols`, `resolved_calls`,

@@ -23,7 +23,7 @@ def _make_valid_run_dir(tmp_path, name="2026-07-23_10-00-00_05_children_collecti
     logs = workspace / "logs"
     run_dir = logs / name
     run_dir.mkdir(parents=True)
-    (run_dir / SENTINEL_FILENAME).write_text("created_by=mastertool-ai-bridge\n")
+    (run_dir / SENTINEL_FILENAME).write_text("created_by=mastertool-rankine-bridge\n")
     (run_dir / "report.json").write_text("{}")
     return run_dir
 

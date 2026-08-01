@@ -492,17 +492,34 @@ def test_status_writer_failed_state_accepted_as_terminal(tmp_path):
 # supervised_snapshot_runner.main()
 # =============================================================================
 
+# Procedencia forjada para os testes que exercitam os passos SEGUINTES da
+# sequencia. Devolve a MESMA forma da funcao real (ok, detail, runtime) --
+# um duble com forma diferente esconderia justamente o defeito que fez toda
+# execucao supervisionada real terminar 'failed': o host validava uma secao
+# 'runtime' que o runner nunca emitia.
+_FAKE_RUNTIME = {
+    "platform": "cli",
+    "runtime_family": "IronPython",
+    "version_info": [2, 7, 12],
+    "provenance_confirmed": True,
+}
+
+
+def _fake_provenance_ok():
+    return (True, "forcado no teste", dict(_FAKE_RUNTIME))
+
+
 def test_check_provenance_fails_for_real_under_cpython():
     """Sem nenhum monkeypatch: prova o comportamento REAL de
     _check_provenance() no ambiente de teste (CPython 3.11, nao IronPython
     2.7/CLI) -- deve reprovar."""
-    ok, detail = supervised_snapshot_runner._check_provenance()
+    ok, detail, runtime = supervised_snapshot_runner._check_provenance()
     assert ok is False
     assert "platform=" in detail
 
 
 def test_main_aborts_when_script_globals_has_no_projects(monkeypatch, tmp_path):
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -522,7 +539,7 @@ def test_main_aborts_when_script_globals_has_no_projects(monkeypatch, tmp_path):
 
 
 def test_main_aborts_when_project_path_diverges_from_expected(monkeypatch, tmp_path):
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -542,7 +559,7 @@ def test_main_aborts_when_project_path_diverges_from_expected(monkeypatch, tmp_p
 
 
 def test_main_aborts_when_application_identity_mismatches(monkeypatch, tmp_path):
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -574,7 +591,7 @@ def test_main_aborts_when_application_identity_mismatches(monkeypatch, tmp_path)
 
 
 def test_main_aborts_on_run_dir_mismatch(monkeypatch, tmp_path):
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     other_dir = tmp_path / "algum-outro-lugar"
@@ -589,7 +606,7 @@ def test_main_aborts_on_run_dir_mismatch(monkeypatch, tmp_path):
 
 
 def test_main_aborts_on_invalid_run_config(monkeypatch, tmp_path):
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -606,7 +623,7 @@ def test_main_never_raises_on_unexpected_exception(monkeypatch, tmp_path):
     """Mesmo uma excecao totalmente nao prevista (aqui, dentro de
     project_access.get_primary_project) nunca escapa de main() -- vira
     status=failed com traceback, e um dict e retornado."""
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     from common import project_access
 
@@ -631,7 +648,7 @@ def test_main_writes_run_report_and_completes_when_no_operations_requested(monke
     """Happy path minimo: identidade confirmada, nenhuma operacao pedida em
     'operations' (todas False) -> passa direto para validating/completed,
     grava run-report.json com a declaracao final do contrato (secao 7)."""
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -651,6 +668,9 @@ def test_main_writes_run_report_and_completes_when_no_operations_requested(monke
         "force_called": False,
         "original_project_touched": False,
         "limits_used": run_config.DEFAULT_LIMITS,
+        # A secao 'runtime' e o que o host consome para confirmar procedencia.
+        # Sem ela, toda execucao supervisionada real terminava 'failed'.
+        "runtime": dict(_FAKE_RUNTIME),
     }
 
     run_report_path = run_dir / "output" / "run-report.json"
@@ -671,7 +691,7 @@ def test_main_passes_configured_limits_including_expected_root_count_to_scanner(
     scanner sem limites explicitos, nem perder 'expected_root_count' quando
     o config o fornecer. Monkeypatch no proprio construtor para capturar os
     kwargs recebidos de verdade."""
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -749,34 +769,87 @@ def _force_runtime(monkeypatch, platform, version_text, version_pair):
 def test_provenance_accepts_real_mt8500_banner_without_the_word_ironpython(monkeypatch):
     """O caso EXATO que reprovou na primeira execucao real."""
     _force_runtime(monkeypatch, "cli", _BANNER_SEM_IRONPYTHON, (2, 7, 12, "final", 0))
-    ok, detail = _runner._check_provenance()
+    ok, detail, _runtime = _runner._check_provenance()
     assert ok is True, detail
 
 
 def test_provenance_still_accepts_banner_that_does_mention_ironpython(monkeypatch):
     _force_runtime(monkeypatch, "cli", "2.7.12 (IronPython 2.7.12)", (2, 7, 12, "final", 0))
-    ok, _ = _runner._check_provenance()
+    ok, _detail, _runtime = _runner._check_provenance()
     assert ok is True
 
 
 def test_provenance_rejects_cpython3_outside_mastertool(monkeypatch):
     _force_runtime(monkeypatch, "win32", "3.11.8 (main)", (3, 11, 8, "final", 0))
-    ok, detail = _runner._check_provenance()
+    ok, detail, _runtime = _runner._check_provenance()
     assert ok is False
     assert "win32" in detail
 
 
 def test_provenance_rejects_right_platform_but_wrong_version(monkeypatch):
     _force_runtime(monkeypatch, "cli", _BANNER_SEM_IRONPYTHON, (3, 4, 0, "final", 0))
-    ok, _ = _runner._check_provenance()
+    ok, _detail, _runtime = _runner._check_provenance()
     assert ok is False
 
 
 def test_provenance_rejects_python27_that_is_not_cli(monkeypatch):
     """2.7 sozinho nao basta: CPython 2.7 fora do MasterTool deve reprovar."""
     _force_runtime(monkeypatch, "win32", "2.7.18 (CPython)", (2, 7, 18, "final", 0))
-    ok, _ = _runner._check_provenance()
+    ok, _detail, _runtime = _runner._check_provenance()
     assert ok is False
+
+
+def test_provenance_reports_observed_runtime_even_when_it_fails(monkeypatch):
+    """Valores OBSERVADOS preservados na reprovacao: o host precisa
+    distinguir "rodou em CPython 3 fora do MasterTool" de "campo ausente".
+    Sem isso as duas situacoes viram o mesmo `null`."""
+    _force_runtime(monkeypatch, "win32", "3.11.8 (main)", (3, 11, 8, "final", 0))
+    ok, _detail, runtime = _runner._check_provenance()
+
+    assert ok is False
+    assert runtime["platform"] == "win32"
+    assert runtime["runtime_family"] == "CPython"
+    assert runtime["version_info"] == [3, 11, 8]
+    assert runtime["provenance_confirmed"] is False
+
+
+def test_provenance_runtime_has_the_three_keys_the_host_consumes(monkeypatch):
+    """O host (cli_probe_verify.check_provenance) le exatamente estas chaves
+    sob 'runtime'. Este teste trava o contrato entre os dois lados -- foi a
+    ausencia dele que deixou toda execucao supervisionada real terminar
+    'failed' por um motivo sem relacao com a aquisicao."""
+    _force_runtime(monkeypatch, "cli", _BANNER_SEM_IRONPYTHON, (2, 7, 12, "final", 0))
+    _ok, _detail, runtime = _runner._check_provenance()
+
+    from mastertool_bridge.automation.cli_probe_verify import check_provenance
+    verdict = check_provenance({"runtime": runtime})
+
+    assert verdict["inside_mastertool"] is True
+    assert runtime["platform"] == "cli"
+    assert runtime["runtime_family"] == "IronPython"
+    assert list(runtime["version_info"][:2]) == [2, 7]
+
+
+def test_run_report_carries_the_runtime_section():
+    runtime = {"platform": "cli", "runtime_family": "IronPython",
+               "version_info": [2, 7, 12], "provenance_confirmed": True}
+    report = _runner._build_run_report({"scanner": {}}, runtime)
+
+    assert report["runtime"] == runtime
+    # Os 6 campos da declaracao do contrato continuam intactos.
+    for key in ("project_saved", "build_called", "online_operation",
+                "download_called", "force_called", "original_project_touched"):
+        assert report[key] is False
+
+
+def test_run_report_without_runtime_emits_empty_not_missing():
+    """Campo ausente NAO pode virar sucesso: o host precisa ver a secao
+    vazia e reprovar, em vez de nao encontrar a chave."""
+    report = _runner._build_run_report({"scanner": {}})
+    assert report["runtime"] == {}
+
+    from mastertool_bridge.automation.cli_probe_verify import check_provenance
+    assert check_provenance(report)["inside_mastertool"] is False
 
 
 # =============================================================================
@@ -794,7 +867,7 @@ def test_provenance_rejects_python27_that_is_not_cli(monkeypatch):
 # =============================================================================
 
 def _run_main_with_export_text(monkeypatch, tmp_path, application=None):
-    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", lambda: (True, "forcado no teste"))
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance", _fake_provenance_ok)
 
     run_dir = tmp_path / "2026-07-24_10-00-00"
     config = _base_config(run_dir)
@@ -911,3 +984,500 @@ def test_runner_module_has_safety_imported_for_the_banner():
 def test_banner_text_is_actually_produced_without_raising():
     texto = _runner.safety.read_only_banner()
     assert "SOMENTE LEITURA" in texto.upper()
+
+
+# =============================================================================
+# Fase L1, probe 17 -- lado INTERNO (run_config + run_status).
+#
+# Mesma regra fail-closed do probe 16 sobre uma secao propria. O que estes
+# testes travam nao e a presenca da operacao, e a INDEPENDENCIA das duas:
+# reutilizar a flag/secao do 16 tornaria impossivel rodar so uma das
+# sondagens -- e comparar os dois metodos e justamente o objetivo da fase.
+# =============================================================================
+
+_DYNAMIC_TARGET = {
+    "target_node_id": "application/9/4",
+    "expected_name": "ALVO",
+    "expected_guid": "guid-1",
+    "expected_type_guid": "guid-2",
+}
+
+
+def _dynamic_ops(**extra):
+    ops = {
+        "scan_project_tree": False,
+        "export_text": False,
+        "inventory_graphic_objects": False,
+        "build": False,
+        "save": False,
+        "online": False,
+    }
+    ops.update(extra)
+    return ops
+
+
+def test_run_config_accepts_dynamic_probe_operation(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_dynamic_surface=True),
+        ladder_dynamic_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+
+    assert loaded["operations"]["probe_ladder_dynamic_surface"] is True
+    assert loaded["ladder_dynamic_probe"] == _DYNAMIC_TARGET
+    # Scanner/exportador desligados permanecem desligados.
+    assert loaded["operations"]["scan_project_tree"] is False
+    assert loaded["operations"]["export_text"] is False
+
+
+def test_run_config_rejects_dynamic_operation_without_section(tmp_path):
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(probe_ladder_dynamic_surface=True))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="ladder_dynamic_probe"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_dynamic_section_without_operation(tmp_path):
+    """Fail-closed na direcao inversa tambem: secao presente com a operacao
+    desligada e config incoerente, nao 'secao ignorada'."""
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_dynamic_surface=False),
+        ladder_dynamic_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="ladder_dynamic_probe"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_dynamic_target_with_empty_field(tmp_path):
+    for field in ("target_node_id", "expected_name", "expected_guid",
+                  "expected_type_guid"):
+        target = dict(_DYNAMIC_TARGET)
+        target[field] = ""
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(probe_ladder_dynamic_surface=True),
+            ladder_dynamic_probe=target)
+        _write_config(tmp_path, config)
+
+        with pytest.raises(run_config.RunConfigError, match=field):
+            run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_dynamic_target_with_missing_field(tmp_path):
+    for field in ("target_node_id", "expected_name", "expected_guid",
+                  "expected_type_guid"):
+        target = dict(_DYNAMIC_TARGET)
+        del target[field]
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(probe_ladder_dynamic_surface=True),
+            ladder_dynamic_probe=target)
+        _write_config(tmp_path, config)
+
+        with pytest.raises(run_config.RunConfigError, match=field):
+            run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_still_rejects_unknown_operation_key(tmp_path):
+    """A operacao nova nao pode ter afrouxado a guarda de chave desconhecida."""
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(probe_ladder_inventado=True))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="probe_ladder_inventado"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_the_two_ladder_probes_are_independent(tmp_path):
+    """Ligar o 17 nao liga o 16, e cada um exige a SUA secao."""
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_dynamic_surface=True),
+        ladder_dynamic_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+
+    assert loaded["operations"].get("probe_ladder_surface", False) is False
+    assert "ladder_probe" not in loaded
+
+
+def test_dynamic_probe_state_is_valid_and_not_terminal():
+    """O estado dedicado existe (o probe 17 tem gate de validade proprio, ao
+    contrario do 16 que reusou 'scanning') e NAO e terminal -- a execucao
+    continua para 'validating'/'completed' depois dele."""
+    assert "probing_ladder_dynamic_surface" in run_status.VALID_STATES
+    assert "probing_ladder_dynamic_surface" not in run_status.TERMINAL_STATES
+
+
+# =============================================================================
+# Fase L1, probe 18 (canal Extender) -- lado INTERNO.
+# =============================================================================
+
+def test_run_config_accepts_extender_probe_operation(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_extender_surface=True),
+        ladder_extender_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+
+    assert loaded["operations"]["probe_ladder_extender_surface"] is True
+    assert loaded["ladder_extender_probe"] == _DYNAMIC_TARGET
+
+
+def test_run_config_rejects_extender_operation_without_section(tmp_path):
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(probe_ladder_extender_surface=True))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="ladder_extender_probe"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_extender_section_without_operation(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_extender_surface=False),
+        ladder_extender_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="ladder_extender_probe"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_extender_target_with_empty_field(tmp_path):
+    for field in ("target_node_id", "expected_name", "expected_guid",
+                  "expected_type_guid"):
+        target = dict(_DYNAMIC_TARGET)
+        target[field] = ""
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(probe_ladder_extender_surface=True),
+            ladder_extender_probe=target)
+        _write_config(tmp_path, config)
+
+        with pytest.raises(run_config.RunConfigError, match=field):
+            run_config.load_run_config(str(tmp_path))
+
+
+def test_extender_probe_state_is_valid_and_not_terminal():
+    assert "probing_ladder_extender_surface" in run_status.VALID_STATES
+    assert "probing_ladder_extender_surface" not in run_status.TERMINAL_STATES
+
+
+def test_the_three_ladder_states_are_distinct():
+    """Cada estado marca uma fronteira operacional real -- um estado
+    generico exigiria consultar campos auxiliares para saber onde a execucao
+    parou."""
+    states = ("scanning", "probing_ladder_dynamic_surface",
+              "probing_ladder_extender_surface")
+    assert len(set(states)) == 3
+    for state in states:
+        assert state in run_status.VALID_STATES
+
+
+# --- exclusao mutua dos tres probes -----------------------------------------
+
+def test_two_ladder_probes_in_the_same_run_are_refused(tmp_path):
+    """Canais distintos, gates proprios: dois vereditos sob um unico status
+    seria ambiguidade justamente no registro de auditoria."""
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_surface=True,
+                                probe_ladder_dynamic_surface=True),
+        ladder_probe=dict(_DYNAMIC_TARGET),
+        ladder_dynamic_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="Mais de um probe Ladder"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_all_three_ladder_probes_together_are_refused(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_ladder_surface=True,
+                                probe_ladder_dynamic_surface=True,
+                                probe_ladder_extender_surface=True),
+        ladder_probe=dict(_DYNAMIC_TARGET),
+        ladder_dynamic_probe=dict(_DYNAMIC_TARGET),
+        ladder_extender_probe=dict(_DYNAMIC_TARGET))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match="Mais de um probe Ladder"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_exactly_one_ladder_probe_is_accepted(tmp_path):
+    """A exclusao mutua nao pode ter proibido o caso normal."""
+    for op_key, section in (
+            ("probe_ladder_surface", "ladder_probe"),
+            ("probe_ladder_dynamic_surface", "ladder_dynamic_probe"),
+            ("probe_ladder_extender_surface", "ladder_extender_probe")):
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(**{op_key: True}),
+            **{section: dict(_DYNAMIC_TARGET)})
+        _write_config(tmp_path, config)
+
+        loaded = run_config.load_run_config(str(tmp_path))
+        assert loaded["operations"][op_key] is True
+
+
+# =============================================================================
+# Fase L1, probe 19 (assinatura de export_xml) -- lado INTERNO.
+# =============================================================================
+
+_PLCOPEN_SECTION = "plcopen_export_signature_probe"
+
+
+def _plcopen_target(**extra):
+    target = dict(_DYNAMIC_TARGET)
+    target.update(extra)
+    return target
+
+
+def test_run_config_accepts_plcopen_signature_operation(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_plcopen_export_signature=True),
+        **{_PLCOPEN_SECTION: _plcopen_target()})
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+
+    assert loaded["operations"]["probe_plcopen_export_signature"] is True
+    assert loaded[_PLCOPEN_SECTION]["target_node_id"] == "application/9/4"
+
+
+def test_run_config_rejects_plcopen_operation_without_section(tmp_path):
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(probe_plcopen_export_signature=True))
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match=_PLCOPEN_SECTION):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_plcopen_section_without_operation(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_plcopen_export_signature=False),
+        **{_PLCOPEN_SECTION: _plcopen_target()})
+    _write_config(tmp_path, config)
+
+    with pytest.raises(run_config.RunConfigError, match=_PLCOPEN_SECTION):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_plcopen_incomplete_identity(tmp_path):
+    for field in ("target_node_id", "expected_name", "expected_guid",
+                  "expected_type_guid"):
+        target = _plcopen_target()
+        target[field] = ""
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(probe_plcopen_export_signature=True),
+            **{_PLCOPEN_SECTION: target})
+        _write_config(tmp_path, config)
+
+        with pytest.raises(run_config.RunConfigError, match=field):
+            run_config.load_run_config(str(tmp_path))
+
+
+def test_inspect_active_application_defaults_to_true_when_absent(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_plcopen_export_signature=True),
+        **{_PLCOPEN_SECTION: _plcopen_target()})
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+    section = loaded[_PLCOPEN_SECTION]
+    assert section.get("inspect_active_application", True) is True
+
+
+def test_inspect_active_application_false_is_accepted_explicitly(tmp_path):
+    config = _base_config(
+        tmp_path,
+        operations=_dynamic_ops(probe_plcopen_export_signature=True),
+        **{_PLCOPEN_SECTION: _plcopen_target(inspect_active_application=False)})
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+    assert loaded[_PLCOPEN_SECTION]["inspect_active_application"] is False
+
+
+def test_inspect_active_application_rejects_non_boolean(tmp_path):
+    """Booleano ESTRITO: 0/1/"true" fariam a config parecer valida com um
+    valor que nao expressa a intencao."""
+    for bad in (0, 1, "true", "false", None, []):
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(probe_plcopen_export_signature=True),
+            **{_PLCOPEN_SECTION: _plcopen_target(inspect_active_application=bad)})
+        _write_config(tmp_path, config)
+
+        with pytest.raises(run_config.RunConfigError, match="inspect_active_application"):
+            run_config.load_run_config(str(tmp_path))
+
+
+def test_plcopen_signature_state_is_valid_and_not_terminal():
+    assert "probing_plcopen_export_signature" in run_status.VALID_STATES
+    assert "probing_plcopen_export_signature" not in run_status.TERMINAL_STATES
+
+
+def test_plcopen_probe_is_mutually_exclusive_with_each_ladder_probe(tmp_path):
+    """Combinacao com CADA um dos outros tres, uma a uma."""
+    for other_op, other_section in (
+            ("probe_ladder_surface", "ladder_probe"),
+            ("probe_ladder_dynamic_surface", "ladder_dynamic_probe"),
+            ("probe_ladder_extender_surface", "ladder_extender_probe")):
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(probe_plcopen_export_signature=True,
+                                    **{other_op: True}),
+            **{_PLCOPEN_SECTION: _plcopen_target(),
+               other_section: dict(_DYNAMIC_TARGET)})
+        _write_config(tmp_path, config)
+
+        with pytest.raises(run_config.RunConfigError, match="Mais de um probe"):
+            run_config.load_run_config(str(tmp_path))
+
+
+# =============================================================================
+# Fase L1, exportacao controlada -- lado INTERNO.
+# =============================================================================
+
+_EXPORT_SECTION = "plcopen_export"
+
+
+def _export_section(**over):
+    section = dict(_DYNAMIC_TARGET)
+    section.update({
+        "recursive": False,
+        "export_folder_structure": False,
+        "plain_text": False,
+        "target_leaf_name": "pou-export",
+    })
+    section.update(over)
+    return section
+
+
+def test_run_config_accepts_export_operation(tmp_path):
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(export_plcopen_xml=True),
+        **{_EXPORT_SECTION: _export_section()})
+    _write_config(tmp_path, config)
+
+    loaded = run_config.load_run_config(str(tmp_path))
+
+    assert loaded["operations"]["export_plcopen_xml"] is True
+    assert loaded[_EXPORT_SECTION]["target_leaf_name"] == "pou-export"
+
+
+def test_run_config_rejects_export_without_section(tmp_path):
+    config = _base_config(tmp_path, operations=_dynamic_ops(export_plcopen_xml=True))
+    _write_config(tmp_path, config)
+    with pytest.raises(run_config.RunConfigError, match=_EXPORT_SECTION):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_run_config_rejects_section_without_export_operation(tmp_path):
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(export_plcopen_xml=False),
+        **{_EXPORT_SECTION: _export_section()})
+    _write_config(tmp_path, config)
+    with pytest.raises(run_config.RunConfigError, match=_EXPORT_SECTION):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_export_booleans_must_be_exactly_false(tmp_path):
+    """Existem para AUDITORIA, nao para abrir matriz de execucao: uma
+    combinacao nunca testada nao pode entrar por alguem editar o JSON."""
+    for field in ("recursive", "export_folder_structure", "plain_text"):
+        for bad in (True, 1, 0, "false", None):
+            config = _base_config(
+                tmp_path, operations=_dynamic_ops(export_plcopen_xml=True),
+                **{_EXPORT_SECTION: _export_section(**{field: bad})})
+            _write_config(tmp_path, config)
+            with pytest.raises(run_config.RunConfigError, match=field):
+                run_config.load_run_config(str(tmp_path))
+
+
+def test_export_requires_target_leaf_name(tmp_path):
+    section = _export_section()
+    del section["target_leaf_name"]
+    config = _base_config(
+        tmp_path, operations=_dynamic_ops(export_plcopen_xml=True),
+        **{_EXPORT_SECTION: section})
+    _write_config(tmp_path, config)
+    with pytest.raises(run_config.RunConfigError, match="target_leaf_name"):
+        run_config.load_run_config(str(tmp_path))
+
+
+def test_exporting_state_is_valid_and_not_terminal():
+    assert "exporting_plcopen_xml" in run_status.VALID_STATES
+    assert "exporting_plcopen_xml" not in run_status.TERMINAL_STATES
+
+
+def test_export_is_mutually_exclusive_with_each_investigation_probe(tmp_path):
+    for other_op, other_section in (
+            ("probe_ladder_surface", "ladder_probe"),
+            ("probe_ladder_dynamic_surface", "ladder_dynamic_probe"),
+            ("probe_ladder_extender_surface", "ladder_extender_probe"),
+            ("probe_plcopen_export_signature", "plcopen_export_signature_probe")):
+        config = _base_config(
+            tmp_path,
+            operations=_dynamic_ops(export_plcopen_xml=True, **{other_op: True}),
+            **{_EXPORT_SECTION: _export_section(),
+               other_section: dict(_DYNAMIC_TARGET)})
+        _write_config(tmp_path, config)
+        with pytest.raises(run_config.RunConfigError, match="Mais de um probe"):
+            run_config.load_run_config(str(tmp_path))
+
+
+def test_runner_creates_export_root_only_after_output_dir_check(tmp_path, monkeypatch):
+    """A guarda de output_dir vazio roda ANTES da criacao -- pre-criar
+    qualquer coisa sob output/ abortava toda a execucao (run
+    2026-07-28_11-37-05). O diretorio nasce vazio por construcao."""
+    run_dir = tmp_path / "2026-07-28_12-00-00"
+    output_dir = run_dir / "output"
+    output_dir.mkdir(parents=True)
+    # output_dir NAO vazio: a guarda deve reprovar e nada deve ser criado.
+    (output_dir / "residuo.txt").write_text("de uma run anterior", encoding="utf-8")
+
+    config = _base_config(
+        run_dir, operations=_dynamic_ops(export_plcopen_xml=True),
+        **{"plcopen_export": _export_section()})
+    _write_config(run_dir, config)
+    monkeypatch.setattr(supervised_snapshot_runner, "_check_provenance",
+                        _fake_provenance_ok)
+
+    result = supervised_snapshot_runner.main(str(run_dir), {})
+
+    # A razao exata do abort depende de quao longe o ambiente dublado chega
+    # (aqui reprova antes, em primary_project_unavailable). O que este teste
+    # trava e a ORDEM: nenhuma guarda reprovada pode deixar diretorio criado
+    # para tras.
+    assert result["final_state"] == "failed"
+    assert not (output_dir / "plcopen-export").exists(), (
+        "nada pode ser criado quando uma guarda inicial reprova")
+
+
+def test_output_dir_empty_guard_still_rejects_prefilled_output(tmp_path, monkeypatch):
+    """A guarda NAO foi enfraquecida pela correcao -- continua reprovando
+    output/ com residuo, que e a protecao contra sobrescrever run anterior."""
+    run_dir = tmp_path / "2026-07-28_12-30-00"
+    output_dir = run_dir / "output"
+    output_dir.mkdir(parents=True)
+    (output_dir / "residuo.txt").write_text("run anterior", encoding="utf-8")
+    assert list(output_dir.iterdir()), "pre-condicao: output nao vazio"

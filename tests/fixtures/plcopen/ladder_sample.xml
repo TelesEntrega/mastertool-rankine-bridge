@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fixture SINTETICA e SANITIZADA.
+
+  Preserva a estrutura observada num export real do MasterTool IEC XE 3.63
+  (namespace tc6_0200) e substitui TODOS os nomes: nenhum identificador de
+  projeto real aparece aqui. As URLs de vendor foram trocadas por example.com
+  de proposito: o mapeador casa por SUFIXO, entao a fixture prova que a
+  deteccao nao depende do dominio do fornecedor.
+
+  Cada item abaixo existe no arquivo real e o parser precisara lidar com ele:
+    * 2 contatos (um NA, um NF via negated="true")
+    * 3 bobinas (uma com storage="reset", uma com negated="true")
+    * 1 TON com instanceName (CallType=functionblock, pinos Q e ET)
+    * blocos operador com multiplos pinos (CallType=operator, SEM instanceName)
+    * serie (encadeamento por refLocalId) e paralelo (ParallelBranch do vendor)
+    * marcadores networktitle delimitando redes
+    * TODAS as posicoes em (0,0), como no export real
+    * a ANOMALIA do formalParameter que nao e pino de saida da origem
+      (coil localId=24 referencia o bloco 21 com formalParameter="SAIDA_B",
+      mas a saida declarada do bloco e "Out1")
+-->
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="" productName="Vendor IEC" productVersion="Vendor IEC" creationDateTime="2026-01-01T00:00:00" />
+  <contentHeader name="ExemploPlanta.project">
+    <coordinateInfo><ld><scaling x="1" y="1" /></ld></coordinateInfo>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous>
+      <pou name="FB_EXEMPLO" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="ENTRADA"><type><BOOL /></type></variable>
+            <variable name="TEMPO"><type><TIME /></type></variable>
+          </inputVars>
+          <outputVars>
+            <variable name="SAIDA_A"><type><BOOL /></type></variable>
+            <variable name="SAIDA_B"><type><BOOL /></type></variable>
+          </outputVars>
+          <localVars>
+            <variable name="ESTADO"><type><INT /></type></variable>
+          </localVars>
+        </interface>
+        <body>
+          <LD>
+            <leftPowerRail localId="0">
+              <position x="0" y="0" />
+              <connectionPointOut formalParameter="none" />
+            </leftPowerRail>
+            <vendorElement localId="2">
+              <position x="0" y="0" />
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdelementtype" handleUnknown="implementation">
+                  <ElementType xmlns="">networktitle</ElementType>
+                </data>
+              </addData>
+            </vendorElement>
+            <inVariable localId="6">
+              <position x="0" y="0" />
+              <connectionPointOut />
+              <expression>ESTADO</expression>
+            </inVariable>
+            <inVariable localId="7">
+              <position x="0" y="0" />
+              <connectionPointOut />
+              <expression>0</expression>
+            </inVariable>
+            <block localId="5" typeName="EQ">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="EN">
+                  <connectionPointIn><connection refLocalId="0" /></connectionPointIn>
+                </variable>
+                <variable formalParameter="In2">
+                  <connectionPointIn><connection refLocalId="6" /></connectionPointIn>
+                </variable>
+                <variable formalParameter="In3">
+                  <connectionPointIn><connection refLocalId="7" /></connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Out1"><connectionPointOut /></variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">operator</CallType>
+                </data>
+              </addData>
+            </block>
+            <contact localId="8" negated="false" storage="none" edge="none">
+              <position x="0" y="0" />
+              <connectionPointIn><connection refLocalId="5" formalParameter="Out1" /></connectionPointIn>
+              <connectionPointOut />
+              <variable>ENTRADA</variable>
+            </contact>
+            <contact localId="11" negated="true" storage="none" edge="none">
+              <position x="0" y="0" />
+              <connectionPointIn><connection refLocalId="0" /></connectionPointIn>
+              <connectionPointOut />
+              <variable>ENTRADA</variable>
+            </contact>
+            <block localId="4" typeName="MOVE">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="EN">
+                  <connectionPointIn><connection refLocalId="8" /></connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Out1"><connectionPointOut /></variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">operator</CallType>
+                </data>
+              </addData>
+            </block>
+            <block localId="10" typeName="MOVE">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="EN">
+                  <connectionPointIn><connection refLocalId="11" /></connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Out1"><connectionPointOut /></variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">operator</CallType>
+                </data>
+              </addData>
+            </block>
+            <vendorElement localId="3">
+              <position x="0" y="0" />
+              <addData>
+                <data name="http://www.example.com/plcopenxml/ldparallelbranch" handleUnknown="implementation">
+                  <ParallelBranch mode="sce">
+                    <BranchInput>
+                      <connectionPointIn><connection refLocalId="0" /></connectionPointIn>
+                    </BranchInput>
+                    <BranchTrees>
+                      <Tree><connectionPointIn><connection refLocalId="4" formalParameter="ENO" /></connectionPointIn></Tree>
+                      <Tree><connectionPointIn><connection refLocalId="10" formalParameter="ENO" /></connectionPointIn></Tree>
+                    </BranchTrees>
+                  </ParallelBranch>
+                </data>
+              </addData>
+            </vendorElement>
+            <vendorElement localId="14">
+              <position x="0" y="0" />
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdelementtype" handleUnknown="implementation">
+                  <ElementType xmlns="">networktitle</ElementType>
+                </data>
+              </addData>
+            </vendorElement>
+            <block localId="15" typeName="EQ">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="EN">
+                  <connectionPointIn><connection refLocalId="0" /></connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Out1"><connectionPointOut /></variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">operator</CallType>
+                </data>
+              </addData>
+            </block>
+            <coil localId="18" negated="false" storage="reset">
+              <position x="0" y="0" />
+              <connectionPointIn><connection refLocalId="15" formalParameter="Out1" /></connectionPointIn>
+              <connectionPointOut />
+              <variable>SAIDA_A</variable>
+            </coil>
+            <vendorElement localId="20">
+              <position x="0" y="0" />
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdelementtype" handleUnknown="implementation">
+                  <ElementType xmlns="">networktitle</ElementType>
+                </data>
+              </addData>
+            </vendorElement>
+            <block localId="21" typeName="EQ">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="EN">
+                  <connectionPointIn><connection refLocalId="0" /></connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Out1"><connectionPointOut /></variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">operator</CallType>
+                </data>
+              </addData>
+            </block>
+            <coil localId="24" negated="false" storage="none">
+              <position x="0" y="0" />
+              <connectionPointIn><connection refLocalId="21" formalParameter="SAIDA_B" /></connectionPointIn>
+              <connectionPointOut />
+              <variable>SAIDA_B</variable>
+            </coil>
+            <inVariable localId="27">
+              <position x="0" y="0" />
+              <connectionPointOut />
+              <expression>TEMPO</expression>
+            </inVariable>
+            <block localId="26" typeName="TON" instanceName="TEMPORIZADOR_0">
+              <position x="0" y="0" />
+              <inputVariables>
+                <variable formalParameter="IN">
+                  <connectionPointIn><connection refLocalId="21" formalParameter="Out1" /></connectionPointIn>
+                </variable>
+                <variable formalParameter="PT">
+                  <connectionPointIn><connection refLocalId="27" /></connectionPointIn>
+                </variable>
+              </inputVariables>
+              <inOutVariables />
+              <outputVariables>
+                <variable formalParameter="Q"><connectionPointOut /></variable>
+                <variable formalParameter="ET"><connectionPointOut /></variable>
+              </outputVariables>
+              <addData>
+                <data name="http://www.example.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+                  <CallType xmlns="">functionblock</CallType>
+                </data>
+              </addData>
+            </block>
+            <coil localId="34" negated="true" storage="none">
+              <position x="0" y="0" />
+              <connectionPointIn><connection refLocalId="26" formalParameter="Q" /></connectionPointIn>
+              <connectionPointOut />
+              <variable>SAIDA_A</variable>
+            </coil>
+            <rightPowerRail localId="2147483646">
+              <position x="0" y="0" />
+              <connectionPointIn />
+            </rightPowerRail>
+          </LD>
+        </body>
+      </pou>
+    </pous>
+  </types>
+</project>

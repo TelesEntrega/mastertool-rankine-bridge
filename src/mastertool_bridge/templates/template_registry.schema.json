@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/template_registry.schema.json",
+  "title": "template_registry — modelo declarativo do registry de templates MasterTool X congelados",
+  "description": "Descreve, de forma declarativa e determinística, os templates de projeto (arquivos .project congelados) que uma sessão de escrita controlada pode usar como base. NÃO é lido por nenhuma sessão do MasterTool — é a entrada que src/mastertool_bridge/templates/registry.py valida offline, em CPython puro, antes de qualquer node_path ser usado para localizar um container na árvore. `node_path` é caminho de ÍNDICES (docs/32 §'Por que W1.4 volta ao projeto-base', docs/33 §7): um cartão de I/O acrescentado sob o Device desloca índices e faz um node_path antigo apontar para o nó errado num arquivo diferente. Por isso cada entrada de template amarra `application_node_path` ao `sha256` do ARQUIVO exato para o qual ele foi medido — o node_path de um template nunca é válido para outro arquivo, mesmo que o `template_id` seja o mesmo (ex.: duas versões do mesmo template, cada uma com cartões de I/O diferentes, têm sha256 e node_path próprios).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "templates"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "templates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/template_entry" }
+    }
+  },
+  "$defs": {
+    "template_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Uma entrada de registry descreve UM arquivo .project congelado, identificado de forma inequívoca pelo seu sha256. `application_node_path` só é válido em conjunto com este sha256 — usar o node_path desta entrada sobre outro arquivo é o erro estrutural que docs/32 documenta (índice deslocado por cartão de I/O).",
+      "required": [
+        "template_id",
+        "mastertool_version",
+        "sha256",
+        "size_bytes",
+        "application_node_path",
+        "application_type_guid",
+        "compiler_version",
+        "persistent_tree_sha256",
+        "libraries",
+        "tasks",
+        "volatile_fields",
+        "reserved_object_names",
+        "authoring_rules"
+      ],
+      "properties": {
+        "template_id": { "type": "string", "minLength": 1 },
+        "mastertool_version": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "application_node_path": {
+          "type": "string",
+          "pattern": "^root(/[0-9]+)*$",
+          "description": "Caminho de ÍNDICES a partir da raiz da árvore, ex. 'root/1/0/0'. NÃO é um caminho de nomes — cada segmento numérico é a posição do filho no nó pai, medida uma única vez para o arquivo identificado por `sha256` nesta mesma entrada."
+        },
+        "application_type_guid": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "compiler_version": { "$ref": "#/$defs/compiler_version" },
+        "persistent_tree_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$",
+          "description": "Hash determinístico de UM NÍVEL de filhos diretos do container, calculado IGNORANDO os campos listados em `volatile_fields`. Serve de baseline para diff estrutural (docs/32 §6). ESCOPO DECLARADO, medido em W1.3B: os probes capturam a árvore via `get_children(False)` — só filhos diretos, não recursivamente — logo este hash cobre um nível, não a árvore inteira do projeto. O nome do campo permanece `persistent_tree_sha256` (assim listado no contrato desta frente), mas o CONSUMIDOR não deve tratá-lo como cobertura recursiva até que uma medição catalogue uma varredura recursiva real; até lá, é DECISÃO deste slice registrar o escopo estreito aqui, em vez de presumir profundidade que o dado não tem."
+        },
+        "libraries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/library" }
+        },
+        "tasks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/task" }
+        },
+        "volatile_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Caminhos/nomes de campos que mudam sem significado estrutural e que o diff deve ignorar (ex.: timestamps catalogados, GUIDs de sessão instáveis — docs/29 §'O diff estrutural'). Se a lista de uma entrada não vem de medição real contra o arquivo, é DECISÃO registrada, não fato medido — ver docstring de `registry.py`."
+        },
+        "reserved_object_names": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Nomes de objetos que já existem no template (ex.: GVL_AI_TESTE, PRG_AI_TESTE de execuções anteriores). Uma project_spec que tente (re)criar um destes nomes deve ser recusada antes de qualquer sessão — ver `check_reserved_object_names` em registry.py."
+        },
+        "authoring_rules": { "$ref": "#/$defs/authoring_rules" },
+        "qualification_status": {
+          "type": "string",
+          "enum": ["qualified", "qualified_with_blockers"],
+          "description": "OPCIONAL. Quando presente, é uma declaração do autor do registry que registry.py confere contra o valor DERIVADO a partir de `compiler_version.status` (e de qualquer outro bloqueio futuro) — nunca é aceito como fonte de verdade isolada. Declarar um valor que diverge do derivado é contradição e reprova a entrada inteira (ver docstring de `registry.py`)."
+        },
+        "authoring_eligible": {
+          "type": "boolean",
+          "description": "OPCIONAL. Mesma regra de `qualification_status`: quando presente, precisa bater com o valor derivado (false enquanto houver `blocking_issues`, nunca aceito como declaração isolada). Um registry que se autodeclare elegível com bloqueio pendente é exatamente o modo de falha que a derivação existe para impedir."
+        },
+        "blocking_issues": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["compiler_version_unresolved"] },
+          "description": "OPCIONAL. Lista fechada de motivos de bloqueio conhecidos. Quando presente, precisa bater com a lista DERIVADA (hoje, só `compiler_version_unresolved`, quando `compiler_version.status == \"unresolved\"`)."
+        }
+      }
+    },
+    "compiler_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "source"],
+      "description": "Evidência explícita, não string livre. `compiler_version` deixou de ser assumido: ou foi MEDIDO por uma API literal e read-only do MasterTool (status='measured'), ou está declaradamente NÃO RESOLVIDO (status='unresolved', ex.: probe 35 sem acessor catalogado de IScriptProjectSettings2) — nos dois casos 'unresolved' nunca vira string vazia e None nunca significa 'não aplicável' (ver docstring de registry.py).",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["measured", "unresolved"]
+        },
+        "value": {
+          "type": ["string", "null"],
+          "description": "String não vazia quando status='measured'. Sempre `null` quando status='unresolved' — nunca string vazia, nunca um valor inventado ou herdado de fallback."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Sempre string não vazia, nos dois status: de onde veio a evidência (ex.: 'literal read-only MasterTool API' quando medido, 'probe_35' quando não resolvido)."
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Obrigatório (string não vazia) quando status='unresolved' — por que não foi possível medir (ex.: 'IScriptProjectSettings2 accessor not catalogued'). Ausente/`null` quando status='measured'."
+        }
+      },
+      "if": { "properties": { "status": { "const": "measured" } } },
+      "then": {
+        "properties": {
+          "value": { "type": "string", "minLength": 1 },
+          "reason": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "value": { "type": "null" },
+          "reason": { "type": "string", "minLength": 1 }
+        },
+        "required": ["reason"]
+      }
+    },
+    "library": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "allow_download"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "allow_download": {
+          "type": "boolean",
+          "const": false,
+          "description": "Sempre false. `download_missing_libraries` é API proibida por contrato (docs/28 §3, docs/32 §5) porque faz rede — medido, não presumido. Um registry que declare `true` aqui está descrevendo uma capacidade que a sessão nunca tem permissão de exercer."
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "cycle_time_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "priority": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "authoring_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_object_families", "forbidden_apis"],
+      "properties": {
+        "allowed_object_families": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["duts", "gvls", "functions", "function_blocks", "programs", "tasks", "libraries"]
+          },
+          "description": "Subconjunto das famílias de objeto que uma sessão sobre este template pode criar. Reaproveita o vocabulário fechado de `mastertool_bridge.spec.validator` (mesmas sete famílias), para que uma project_spec e um template_registry falem a mesma língua sem reinventar nomes."
+        },
+        "forbidden_apis": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Nomes de método proibidos por contrato para sessões sobre este template (ex.: 'download_missing_libraries', 'set_compilerversion_to_newest' — docs/28 §3, docs/32 §5). Lista declarativa; a aplicação real da proibição é do lado da sessão de escrita controlada, fora do escopo deste registry."
+        }
+      }
+    }
+  }
+}

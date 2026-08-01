@@ -18,7 +18,15 @@ dependencies = [
   # oficial do Model Context Protocol (API de alto nivel FastMCP);
   # implementar o protocolo (JSON-RPC sobre stdio, handshake de
   # capacidades, etc.) a mao seria descabido. Ver mcp_server.py.
-  "mcp>=1.0",
+  #
+  # O teto `<2` NAO e precaucao: foi medido. `mcp>=1.0` resolve hoje para
+  # 2.0.0, que REMOVEU `mcp.server.fastmcp` -- exatamente o modulo importado
+  # em `mcp_server.py:185`. Um ambiente montado a partir do manifesto antigo
+  # sobe o servidor e morre em ModuleNotFoundError, e os sete testes E2E
+  # falham por dependencia, nao por defeito. Migrar para a API 2.x e slice
+  # funcional proprio; enquanto o codigo usa FastMCP 1.x, o manifesto tem de
+  # dizer 1.x.
+  "mcp>=1.0,<2",
 ]
 
 [project.scripts]

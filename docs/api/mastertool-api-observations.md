@@ -1019,8 +1019,8 @@ textual/iteração direta `false`; `read_only`, `bounded_index_navigation`
 e `recursive_navigation` `true` — exatamente como esperado.
 
 **Único limite atingido**: `max_depth_reached = true`. Os 4 nós em
-**profundidade 7** (`U1_Drive_Exemplo`, `U2_Drive_Exemplo`,
-`U3_Drive_Exemplo`, `U4_Drive_Exemplo` — parâmetros de dispositivo
+**profundidade 7** (`U1_Inversor_Elevador`, `U2_Inversor_Carro`,
+`U3_Inversor_Corte`, `U4_Inversor_Agitador` — parâmetros de dispositivo
 sob `EtherNet_IP_Scanner`) aparecem na árvore com identidade completa,
 mas tiveram a busca de filhos deliberadamente não tentada
 (`collection.state = "not_attempted_depth_limit"`) — comportamento
@@ -1040,10 +1040,10 @@ Project (ExemploPlanta V1.0.project)
 │   │       ├── SystemGVLs (4) / UserGVLs (3)
 │   │       ├── Task Configuration → MainTask/ENIPScannerIOTask/ENIPScannerServiceTask
 │   │       ├── SystemPOUs / UserPOUs / SystemEvents
-│   │       ├── FuncoesExemplo (11 FBs de aplicação: FB_CONTADOR_EXEMPLO, FB_TRAVA_EXEMPLO, ...)
-│   │       ├── TiposDadosExemplo (8: Equipamento, DrivesExemplo, PrgValvulasExemplo, PrgPrgParametrosExemploAuxExemplo, FabricanteExemplo, ...)
-│   │       ├── I/Os (EntradasExemplo/SaidasExemplo)
-│   │       ├── PrgHookExemplo → ProgramasExemplo (11 POUs: PrgEixoVerticalExemplo, PrgEixoHorizontalExemplo, ...)
+│   │       ├── FuncoesExemplo (11 FBs de aplicação: CONT_RETEN, TRAVA_SEGURANCA, ...)
+│   │       ├── TiposDadosExemplo (8: Equipamento, DrivesExemplo, PrgValvulasExemplo, PrgPrgPrgParametrosExemploExemploAuxExemplo, Omron, ...)
+│   │       ├── I/Os (EntradasExemplo/Saidas)
+│   │       ├── PrgHookExemplo → ProgramasExemplo (11 POUs: Elevador_Vertical, Carro_Horizontal, ...)
 │   │       ├── UnidadesAuxExemplo → ProgramasExemplo (7 POUs)
 │   │       └── Variáveis Globais (14 GVLs de usuário)
 │   └── Configuration                        (2)

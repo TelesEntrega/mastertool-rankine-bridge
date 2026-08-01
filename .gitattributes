@@ -1,0 +1,20 @@
+# Fixtures verificadas por CHECKSUM precisam de bytes estáveis em qualquer
+# clone. `tests/indexer/fixtures/sample_export/` carrega hashes SHA-256 no
+# `checksums.sha256` e nos `metadata.json` de cada objeto.
+#
+# Sem esta regra, com `core.autocrlf=true` — o padrão em instalações Windows
+# do Git — o checkout converte LF para CRLF, cada arquivo ganha um byte por
+# linha, e todo hash passa a divergir. O sintoma engana: a suíte passa na
+# máquina onde os arquivos foram criados e falha em QUALQUER clone novo, com
+# "hash divergente" apontando para a fixture, como se o dado estivesse
+# corrompido. Encontrado rodando a suíte num clone limpo.
+#
+# `text eol=lf` (e não `-text`) mantém os arquivos como TEXTO para o Git —
+# diffs continuam legíveis e as ferramentas seguem funcionando — enquanto
+# garante LF no working tree em Windows e Linux igualmente.
+tests/indexer/fixtures/sample_export/** text eol=lf
+
+# Mesma razão para a fixture PLCopen: ela existe para ser comparada com o
+# export real do MasterTool, e a comparação precisa medir diferença de
+# conteúdo, nunca conversão de fim de linha feita pelo Git.
+tests/fixtures/plcopen/** text eol=lf

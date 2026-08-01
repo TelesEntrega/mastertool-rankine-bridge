@@ -108,12 +108,30 @@ def check_provenance(result: dict) -> dict:
 
     inside_mastertool = platform_ok and family_ok and version_ok
     reason = None
+    reason_code = None
     if not inside_mastertool:
         failed = [name for name, c in checks.items() if not c["ok"]]
-        reason = ("procedência não confirmada — checagem(ns) reprovada(s): "
-                  + ", ".join(sorted(failed)))
+        # Seção ausente e seção com valores errados são diagnósticos
+        # OPOSTOS e precisam de códigos distintos. "Ausente" aponta para uma
+        # lacuna entre os dois lados (o runner não emitiu o que o host lê) —
+        # foi exatamente esse caso que fez toda execução supervisionada real
+        # terminar `failed` sem relação com a aquisição. "Incorreto" aponta
+        # para execução fora do MasterTool, que é a ameaça que a checagem
+        # existe para pegar. Colapsar os dois na mesma mensagem esconde qual
+        # dos dois está acontecendo.
+        if not runtime:
+            reason_code = "runtime_provenance_missing"
+            reason = ("procedência não confirmada — seção `runtime` ausente no "
+                      "run-report.json: o runner interno não registrou o runtime "
+                      "observado, então não há o que verificar (isto NÃO é prova "
+                      "de execução fora do MasterTool, é ausência de prova)")
+        else:
+            reason_code = "runtime_provenance_mismatch"
+            reason = ("procedência não confirmada — checagem(ns) reprovada(s): "
+                      + ", ".join(sorted(failed)))
 
-    return {"inside_mastertool": inside_mastertool, "checks": checks, "reason": reason}
+    return {"inside_mastertool": inside_mastertool, "checks": checks,
+            "reason": reason, "reason_code": reason_code}
 
 
 # =============================================================================

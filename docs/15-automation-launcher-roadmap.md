@@ -49,7 +49,7 @@ publica o índice para API Python e MCP
 ```powershell
 "C:\Program Files (x86)\Altus\MT8500 3.63\MT8500.exe" `
   --project="C:\Projetos\Projeto.project" `
-  --runscript="C:\mastertool-ai-bridge\scripts\mastertool\automation\run_snapshot.py" `
+  --runscript="C:\mastertool-rankine-bridge\scripts\mastertool\automation\run_snapshot.py" `
   --scriptargs:'--output "C:\ProjetosIndexados\ProjetoA"' `
   --noUI
 ```
@@ -197,8 +197,8 @@ Ele **nunca** mata processo — se sobrar órfão, só reporta.
 ### Preparar a cópia descartável (antes do t3)
 
 ```powershell
-$orig = 'C:\caminho\para\Projeto Teste\ExemploPlanta V1.0.project'
-$dest = 'C:\caminho\para\Projeto Teste\_descartavel\ExemploPlanta V1.0 COPIA.project'
+$orig = 'C:\Pasta Com Espacos\Projeto Teste\ExemploPlanta V1.0.project'
+$dest = 'C:\Pasta Com Espacos\Projeto Teste\_descartavel\ExemploPlanta V1.0 COPIA.project'
 New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
 Copy-Item -LiteralPath $orig -Destination $dest
 (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash
@@ -206,7 +206,7 @@ Copy-Item -LiteralPath $orig -Destination $dest
 
 ### Os 5 testes
 
-Em todos: `cd` para `mastertool-ai-bridge\scripts\host` primeiro. Ensaio sem
+Em todos: `cd` para `mastertool-rankine-bridge\scripts\host` primeiro. Ensaio sem
 `-Execute`, depois com.
 
 | # | Comando | O que prova |
@@ -304,9 +304,9 @@ Duas execuções, uma variável trocada entre elas:
 
 ```text
 argv[0] '...\Pasta Com Espacos\...\15_validate_command_line_execution.py'
-argv[1] '--output=C:\caminho\para\Documents\exemplo\Pasta'
+argv[1] '--output=C:\Agente'
 argv[2] 'IA'
-argv[3] 'MasterTool\mastertool-ai-bridge\workspace\logs\cli-probe\t2'
+argv[3] 'MasterTool\mastertool-rankine-bridge\workspace\logs\cli-probe\t2'
 ```
 
 **16:36 — saída em caminho SEM espaços** (`C:\mastertool-cli-probe\t2`):
@@ -324,7 +324,7 @@ diferentes, e não há aspas que resolvam pelo lado do chamador — testamos
 
 **Efeito colateral da execução com espaços**: a camada 1 do probe "teve
 sucesso" gravando no caminho truncado e **criou o diretório**
-`C:\caminho\para\Documents\exemplo\Pasta\`, fora do
+`C:\Agente\`, fora do
 repositório. Artefatos preservados em
 `workspace/logs/cli-probe/_evidencia-execucao-com-espacos/`.
 

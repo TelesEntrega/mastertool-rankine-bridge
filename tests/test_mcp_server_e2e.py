@@ -10,7 +10,7 @@ servidor real como SUBPROCESSO (`python -m mastertool_bridge.mcp_server`),
 conecta como cliente MCP real via stdio, e verifica as respostas que voltam
 ATRAVES DO PROTOCOLO (JSON-RPC sobre stdio, com handshake de capacidades).
 
-API real confirmada por inspecao direta do pacote `mcp==1.28.1` instalado
+API real confirmada por inspecao direta do pacote `mcp` instalado, serie 1.x
 (ver `mcp/__init__.py`, `mcp/client/stdio/__init__.py`,
 `mcp/client/session.py` no site-packages):
 
@@ -38,24 +38,51 @@ API real confirmada por inspecao direta do pacote `mcp==1.28.1` instalado
           (redundante com `structuredContent` para tools que declaram
           retorno dict; usado aqui apenas como fallback/checagem extra)
 
-Execucao assincrona: `pytest-asyncio==1.4.0` ja esta instalado no interpretador
-base usado para rodar a suite (`C:\\Program Files\\Python311\\python.exe`,
-NAO o `.venv` do projeto -- o `.venv` local nao tem o pacote `mcp` instalado,
-apenas o Python base tem `mcp`/`pytest-asyncio`/`anyio` no user site-packages).
+EXECUCAO: AMBIENTE PROVISIONADO PELOS MANIFESTOS DO REPOSITORIO.
+
+Rode com o interpretador montado a partir de `requirements-dev.txt`
+(`pip install -r requirements-dev.txt`). **O Python base da maquina nao e
+fonte valida de dependencia**: pacote presente nele por instalacao manual
+nao esta declarado em lugar nenhum, some no proximo clone e faz a suite
+dizer coisas diferentes em maquinas diferentes.
+
+Uma versao anterior deste texto afirmava que "nenhuma dependencia nova foi
+adicionada" porque `pytest-asyncio` e `anyio` "ja estavam disponiveis" no
+Python base. A afirmacao era falsa no sentido que importa: disponivel num
+interpretador nao e declarado no repositorio. O resultado foi que estes sete
+testes falhavam em "async def functions are not natively supported" sempre
+que a suite rodava pela `.venv` do projeto, e o repositorio perdeu a
+capacidade de distinguir regressao nova de ambiente incompleto. Corrigido em
+`c5a1f2c`; a guarda permanente esta em `tests/unit/test_test_infrastructure.py`.
+
+Dependencias que ESTES testes exigem, todas declaradas:
+
+    pytest-asyncio>=1.0,<2   os testes abaixo sao `async def`
+    mcp>=1.0,<2              cliente real e servidor sob teste
+
+O teto `<2` em `mcp` e TEMPORARIO e esta amarrado ao codigo: a serie 2
+removeu `mcp.server.fastmcp`, que `mcp_server.py` importa. Quando o servidor
+migrar para a API 2.x, o teto deve ser LEVANTADO nos dois manifestos --
+`tests/unit/test_test_infrastructure.py` falha para lembrar disso, em vez de
+deixar o repositorio preso na serie 1 por inercia.
+
 `pyproject.toml` nao configura `asyncio_mode`, entao o plugin roda em modo
 STRICT por padrao -- por isso cada teste assincrono abaixo usa
-`@pytest.mark.asyncio` explicitamente. Nenhuma dependencia nova foi
-adicionada: `pytest-asyncio` e `anyio` ja estavam disponiveis.
+`@pytest.mark.asyncio` explicitamente. Isso e escolha, nao acaso: em modo
+strict um `async def test_` SEM o marcador e coletado e nunca executado, e
+ligar `asyncio_mode = auto` esconderia esse caso em vez de resolve-lo. Ha
+teste de infraestrutura exigindo o marcador em todo teste assincrono da
+suite.
 
 O modulo do servidor (`mastertool_bridge.mcp_server`) tem
 `if __name__ == "__main__": main()`, o que confirma que
 `python -m mastertool_bridge.mcp_server` e uma forma valida de subi-lo.
-Como o pacote `mastertool_bridge` nao esta instalado (nem via `pip install
--e`, nem `pyproject.toml` copiado) no Python base usado para rodar a suite,
-o subprocesso e lancado com `PYTHONPATH=<repo>/src` explicito no `env` de
+O subprocesso e lancado com `PYTHONPATH=<repo>/src` explicito no `env` de
 `StdioServerParameters` (mesmo mecanismo do `pythonpath = ["src"]` do
-pytest, mas reproduzido manualmente pois o subprocesso e um interpretador
-Python novo e independente, sem os `sys.path` do processo de teste).
+pytest, mas reproduzido manualmente): o subprocesso e um interpretador novo
+e independente, sem os `sys.path` do processo de teste, e o explicito vale
+tanto no ambiente em que `mastertool_bridge` esta instalado em modo editavel
+quanto naquele em que ele nao esta.
 """
 
 from __future__ import annotations
@@ -120,11 +147,15 @@ def real_index_dir(tmp_path: Path) -> Path:
     # execucao dentro do MasterTool, nao artefato versionado. Num clone limpo ele
     # nao existe, e a ausencia nao e falha -- e falta de dado de entrada. Falhar
     # aqui reportaria como defeito do servidor MCP algo que e so ambiente sem
-    # captura. Quem tem um export real roda o teste; quem nao tem, pula.
+    # captura. Quem tem o export roda o E2E completo; quem nao tem, pula sabendo
+    # exatamente o que gerar.
     if not SAMPLE_EXPORT_DIR.exists():
         pytest.skip(
-            f"export real ausente ({SAMPLE_EXPORT_DIR.name}): gere um com "
-            f"`supervised-snapshot` para exercitar o E2E contra dado real."
+            f"export real ausente: {SAMPLE_EXPORT_DIR}\n"
+            f"Gere um com `mastertool-bridge supervised-snapshot` (ou "
+            f"`scripts/host/run_supervised_snapshot.ps1 -Execute`) e copie o "
+            f"diretorio de saida para `workspace/exports/` com este nome, ou "
+            f"ajuste SAMPLE_EXPORT_DIR para apontar para a sua captura."
         )
     output_dir = tmp_path / "index_out"
     build_static_index(SAMPLE_EXPORT_DIR, output_dir)

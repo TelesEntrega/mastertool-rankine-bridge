@@ -47,7 +47,7 @@ param(
     [string]$ProjectCopy,
 
     # Projeto original, so para a checagem de "voce nao apontou para o original".
-    [string]$OriginalProject = 'C:\caminho\para\Projeto Teste\ExemploPlanta V1.0.project',
+    [string]$OriginalProject = 'C:\Pasta Com Espacos\Projeto Teste\ExemploPlanta V1.0.project',
 
     # Diretorio de saida do probe. Padrao: workspace\logs\cli-probe\<teste>,
     # cujo caminho CONTEM ESPACOS (a raiz do repo e "Pasta Com Espacos") -
@@ -95,7 +95,7 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     }
     if ([string]::IsNullOrWhiteSpace($selfPath)) {
         Fail ("Nao foi possivel descobrir o caminho deste script para derivar a raiz " +
-              "do repositorio. Informe explicitamente: -RepoRoot '<...>\mastertool-ai-bridge'")
+              "do repositorio. Informe explicitamente: -RepoRoot '<...>\mastertool-rankine-bridge'")
     }
     # <repo>\scripts\host\run_cli_probe_test.ps1 -> host -> scripts -> <repo>
     $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $selfPath))
@@ -125,7 +125,7 @@ else {
 # --scriptargs em espacos em branco. O caminho
 #   C:\...\Pasta Com Espacos\...\cli-probe\t2
 # chegou ao script como TRES elementos de argv ('...\Agente', 'IA',
-# 'MasterTool\...'), e o probe gravou em "C:\...\exemplo\Pasta"
+# 'MasterTool\...'), e o probe gravou em "C:\...\Exemplos\Agente"
 # - um diretorio novo, fora do repositorio. O caminho do --runscript, por
 # contraste, chegou intacto. Conclusao: qualquer caminho passado por
 # --scriptargs NAO pode conter espaco.
@@ -196,7 +196,7 @@ if ($needsProject) {
 # aspas em elementos que contem espaco. Como a raiz do repo e
 # "...\Pasta Com Espacos\...", o MT8500 recebeu o valor sem aspas e leu so
 # ate o primeiro espaco, falhando com
-#   System.IO.FileNotFoundException: ...\exemplo\Pasta
+#   System.IO.FileNotFoundException: ...\Exemplos\Agente
 # Isso NAO foi falha do MasterTool: ele reconheceu `--runscript` e tentou
 # carregar o arquivo. Por isso as aspas vao EMBUTIDAS no proprio token.
 $scriptArgsValue = '--output=' + $outDir
