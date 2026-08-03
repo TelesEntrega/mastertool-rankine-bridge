@@ -1,11 +1,20 @@
 # Onde paramos — 2026-07-31
 
+> **PONTEIRO — não é mais a fonte do estado.** A fonte única do estado vigente
+> passou a ser [`CURRENT_STATUS.md`](CURRENT_STATUS.md); o plano corrente é
+> [`ROADMAP.md`](ROADMAP.md). Esta página continua valendo como **registro
+> narrativo de como se chegou até aqui** — armadilhas de medição, achados de
+> método e a ordem em que as coisas foram descobertas, que são justamente o que
+> uma tabela de estado não carrega.
+>
+> **Leia com a data na mão.** Duas tabelas dentro deste próprio arquivo
+> divergem: a do topo já registra W1.3A, W1.3B, W1.4 e W2 como executadas e
+> aprovadas, e a tabela "Marcos", mais abaixo, ainda diz "não iniciado" para as
+> mesmas fases. A do topo é a correta. A divergência fica registrada em vez de
+> apagada — foi ela que motivou a criação de uma fonte canônica única.
+
 Ponto de retomada. Este documento existe para alguém (ou algum agente)
 conseguir continuar sem reler o histórico inteiro.
-
-**Ele é o documento canônico de retomada.** Se estiver desatualizado, toda
-retomada começa errada — por isso é atualizado no mesmo slice que muda o
-estado, nunca depois.
 
 ## Estado em uma linha
 
@@ -214,7 +223,7 @@ sha256       c692040c39cc7bf656edd551d2ffdd1b41fecaa198b56b3182bd5149e1aeca13
 ```
 
 **Reconferido em 2026-07-31**: presente nesta máquina, em
-`C:\mastertool-bridge-runs\2026-07-29_10-14-54\`, com tamanho e SHA-256
+`C:\mastertool-rankine-bridge-runs\2026-07-29_10-14-54\`, com tamanho e SHA-256
 idênticos aos registrados. Portanto os testes de POU real estão efetivamente
 rodando aqui, não pulando — o único skip da suíte é o do `unicode`.
 
@@ -223,7 +232,7 @@ existem nesta máquina:
 
 | Teste | Run |
 |---|---|
-| `test_logical_topology.py:494` | `C:\mastertool-bridge-runs\2026-07-29_10-14-54\` (o artefato de referência acima) |
+| `test_logical_topology.py:494` | `C:\mastertool-rankine-bridge-runs\2026-07-29_10-14-54\` (o artefato de referência acima) |
 | `test_plcopen_ladder_parser.py:25` | `workspace\exports\2026-07-28_13-48-49_20_validate_controlled_plcopen_export\` |
 
 Os dois arquivos têm os mesmos 25.226 bytes e **hashes diferentes**: cada
@@ -681,7 +690,7 @@ nasce **vazia** (`e3b0c442…7852b855`, o sha da string vazia).
 ### O bloqueio atual NÃO é mais W1.3 — é a elegibilidade do template
 
 O `TemplateExemplo v1.project` foi qualificado read-only em `run-010`/`run-011`
-([`docs/36`](36-qualificacao-template-template-exemplo-v1.md)). Resultado: **medido e NÃO
+([`docs/36`](36-qualificacao-template-tmf-v1.md)). Resultado: **medido e NÃO
 elegível para autoria**, com dois bloqueadores nomeados.
 
 | | |

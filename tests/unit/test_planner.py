@@ -71,20 +71,20 @@ def minimal_spec() -> dict:
         "schema_version": 1,
         "template": dict(TEMPLATE),
         "duts": [
-            {"name": "ST_Equipamento", "kind": "STRUCT",
-             "declaration": "TYPE ST_Equipamento :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\n"},
+            {"name": "ST_Motor", "kind": "STRUCT",
+             "declaration": "TYPE ST_Motor :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\n"},
         ],
         "gvls": [
             {"name": "GVL_AI_TESTE",
              "declaration": "{attribute 'qualified_only'}\nVAR_GLOBAL\n"
                             "    g_xTesteCriacao : BOOL;\nEND_VAR",
-             "uses": ["ST_Equipamento"]},
+             "uses": ["ST_Motor"]},
         ],
         "functions": [
             {"name": "FUN_Soma", "language": {"guid": ST_GUID},
              "declaration": "FUNCTION FUN_Soma : INT\nVAR_INPUT\n a : INT;\nEND_VAR",
              "implementation": "FUN_Soma := a;",
-             "return_type": "INT", "uses": ["ST_Equipamento"]},
+             "return_type": "INT", "uses": ["ST_Motor"]},
         ],
         "function_blocks": [
             {"name": "FB_AI_CONTADOR", "language": {"guid": ST_GUID},
@@ -1103,7 +1103,7 @@ def test_duplicate_name_across_families_is_refused():
     coexistir — e resolver `uses` viraria ambíguo, o que produziria um plano
     silenciosamente errado."""
     spec = minimal_spec()
-    spec["gvls"].append({"name": "ST_Equipamento", "declaration": "VAR_GLOBAL\nEND_VAR"})
+    spec["gvls"].append({"name": "ST_Motor", "declaration": "VAR_GLOBAL\nEND_VAR"})
     result = build_authoring_plan(spec)
     assert result.plan is None
     assert any("conflita entre" in problem for problem in result.problems)
@@ -1111,7 +1111,7 @@ def test_duplicate_name_across_families_is_refused():
 
 def test_duplicate_name_within_family_is_refused():
     spec = minimal_spec()
-    spec["duts"].append({"name": "ST_Equipamento", "kind": "ENUM", "declaration": "d"})
+    spec["duts"].append({"name": "ST_Motor", "kind": "ENUM", "declaration": "d"})
     result = build_authoring_plan(spec)
     assert result.plan is None
     assert any("duplicado" in problem for problem in result.problems)
@@ -1384,3 +1384,152 @@ def test_big_spec_source_locations_are_unique_and_name_qualified():
                 if step["operation"] == "replace"]
     assert len(replaces) == len(set(replaces))
     assert all(location.count(":") == 2 for location in replaces)
+
+
+# =============================================================================
+# ordem de chamada dentro de uma task -- a ordem de execucao no ciclo IEC
+# =============================================================================
+
+def _spec_com_duas_chamadas_fora_de_ordem_alfabetica():
+    """`PRG_Bomba` antes de `PRG_Alarme`: alfabetizar inverte os dois."""
+    return {
+        "schema_version": 1,
+        "template": {"id": "TemplateExemplo_v1", "sha256": "5966257" + "0" * 57},
+        "programs": [
+            {"name": "PRG_Bomba", "language": {"guid": ST_GUID},
+             "declaration": "PROGRAM PRG_Bomba\nVAR\n x : BOOL;\nEND_VAR",
+             "implementation": "x := TRUE;"},
+            {"name": "PRG_Alarme", "language": {"guid": ST_GUID},
+             "declaration": "PROGRAM PRG_Alarme\nVAR\n y : BOOL;\nEND_VAR",
+             "implementation": "y := TRUE;"},
+        ],
+        "tasks": [{"name": "MainTask", "existing": True,
+                   "program_calls": ["PRG_Bomba", "PRG_Alarme"]}],
+    }
+
+
+def test_ordem_declarada_de_program_calls_e_preservada_no_plano():
+    """Em IEC, a ordem das chamadas dentro de uma task É a ordem de execução
+    no ciclo. O planner alfabetizava, e a spec acima executaria o alarme antes
+    da bomba — comportamento diferente do pedido, sem diagnóstico nenhum."""
+    resultado = build_authoring_plan(_spec_com_duas_chamadas_fora_de_ordem_alfabetica())
+    assert resultado.problems == [], resultado.problems
+
+    chamadas = [passo["target_name"] for passo in resultado.plan["steps"]
+                if passo["operation"] in ("create_program_call",
+                                          "bind_program_to_task")]
+    assert chamadas == ["MainTask->PRG_Bomba", "MainTask->PRG_Alarme"]
+    assert chamadas != sorted(chamadas)
+
+
+def test_creation_order_do_validador_tambem_segue_a_ordem_declarada():
+    """São duas estruturas com o mesmo nome, e só uma lista chamadas: o
+    `creation_order` do PLANO é a ordem topológica dos objetos criados; o do
+    VALIDADOR é o que a verificação compara contra o projeto gerado, e é lá
+    que as chamadas aparecem. As duas precisavam ser corrigidas juntas —
+    validador alfabetizando e planner respeitando a spec seria discordância
+    silenciosa entre quem verifica e quem executa."""
+    from mastertool_bridge.spec.validator import validate_project_spec
+
+    resultado = validate_project_spec(
+        _spec_com_duas_chamadas_fora_de_ordem_alfabetica())
+    chamadas = [chave for chave in resultado.creation_order
+                if chave.startswith("program_call:")]
+    assert chamadas == ["program_call:MainTask->PRG_Bomba",
+                        "program_call:MainTask->PRG_Alarme"]
+    assert chamadas != sorted(chamadas)
+
+
+def test_a_ordem_declarada_continua_deterministica():
+    """Trocar ordem alfabética por ordem da spec não introduz variação: o
+    mesmo texto de spec produz o mesmo plano."""
+    spec = _spec_com_duas_chamadas_fora_de_ordem_alfabetica()
+    primeiro = build_authoring_plan(spec).plan
+    segundo = build_authoring_plan(spec).plan
+    assert primeiro["steps"] == segundo["steps"]
+    assert primeiro["creation_order"] == segundo["creation_order"]
+    assert primeiro["plan_sha256"] == segundo["plan_sha256"]
+
+
+def test_chamada_repetida_na_mesma_task_continua_reprovando():
+    """A ordem passou a ser respeitada; a recusa de duplicata não afrouxou."""
+    spec = _spec_com_duas_chamadas_fora_de_ordem_alfabetica()
+    spec["tasks"][0]["program_calls"] = ["PRG_Bomba", "PRG_Bomba"]
+    resultado = build_authoring_plan(spec)
+    assert any("aparece mais de uma vez" in p for p in resultado.problems)
+
+
+# =============================================================================
+# R2 -- alteração de objeto preexistente, com hash anterior medido
+# =============================================================================
+
+def _spec_modificacao(**mudancas):
+    entrada = {"family": "programs", "name": "UserPrg",
+               "field": "implementation",
+               "expected_before_sha256": "a" * 64, "text": "x := 1;"}
+    entrada.update(mudancas)
+    return {"schema_version": 1,
+            "template": {"id": "TemplateExemplo_v1", "sha256": "5966257" + "0" * 57},
+            "modifications": [entrada]}
+
+
+def test_modificacao_emite_replace_com_procedencia_medida():
+    from mastertool_bridge.planner.planner import EXPECTED_BEFORE_MEASURED
+
+    resultado = build_authoring_plan(_spec_modificacao())
+    assert resultado.problems == [], resultado.problems
+    passos = [p for p in resultado.plan["steps"] if p["operation"] == "replace"]
+    assert len(passos) == 1
+    assert passos[0]["expected_before_kind"] == EXPECTED_BEFORE_MEASURED
+    assert passos[0]["expected_before_sha256"] == "a" * 64
+    assert passos[0]["planned_after_sha256"]
+
+
+def test_alterar_objeto_que_a_propria_spec_cria_reprova():
+    """As duas procedências existem para casos diferentes. Conferir o hash de
+    um esqueleto que o plano acabou de gerar é verificação que passa sempre."""
+    spec = _spec_modificacao(name="PRG_NOVO")
+    spec["programs"] = [{"name": "PRG_NOVO", "language": {"guid": ST_GUID},
+                         "declaration": "PROGRAM PRG_NOVO\nVAR\nEND_VAR",
+                         "implementation": ";"}]
+    resultado = build_authoring_plan(spec)
+    assert any("procedências diferentes" in p or "procedencias diferentes" in p
+               for p in resultado.problems)
+
+
+@pytest.mark.parametrize("mudanca,esperado", [
+    ({"expected_before_sha256": "curto"}, "expected_before_sha256"),
+    ({"expected_before_sha256": None}, "expected_before_sha256"),
+    ({"family": "tasks"}, "family"),
+    ({"field": "corpo"}, "field"),
+    ({"name": "1_invalido"}, "name"),
+    ({"text": 42}, "text"),
+])
+def test_modificacao_malformada_reprova(mudanca, esperado):
+    resultado = build_authoring_plan(_spec_modificacao(**mudanca))
+    assert any(esperado in p for p in resultado.problems), resultado.problems
+
+
+def test_duas_alteracoes_do_mesmo_documento_reprovam():
+    """Qual conteúdo ficaria? A pergunta não tem resposta, então o plano não
+    é emitido."""
+    spec = _spec_modificacao()
+    spec["modifications"].append(dict(spec["modifications"][0], text="y := 2;"))
+    resultado = build_authoring_plan(spec)
+    assert any("mais de uma vez" in p for p in resultado.problems)
+
+
+def test_campo_desconhecido_na_modificacao_reprova():
+    spec = _spec_modificacao()
+    spec["modifications"][0]["node_path"] = "root/1/0/0"
+    resultado = build_authoring_plan(spec)
+    assert any("desconhecido" in p for p in resultado.problems)
+
+
+def test_spec_sem_modifications_continua_igual():
+    """A família nova é opcional: nenhuma spec existente muda de comportamento."""
+    plano = build_authoring_plan(
+        _spec_com_duas_chamadas_fora_de_ordem_alfabetica()).plan
+    assert all(p.get("expected_before_kind") != "measured"
+               for p in plano["steps"])
+    assert any(p["operation"] == "replace" for p in plano["steps"])

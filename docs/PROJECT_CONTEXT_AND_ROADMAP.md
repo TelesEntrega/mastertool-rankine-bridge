@@ -1,5 +1,12 @@
 # MasterTool AI Bridge — Contexto consolidado, decisões e roadmap
 
+> **PONTEIRO — o "estado atual" descrito abaixo é o de 24/07/2026.** Ele
+> antecede as fases W1 a W9, em que a autoria controlada foi provada contra o
+> MasterTool X. O estado vigente está em
+> [`CURRENT_STATUS.md`](CURRENT_STATUS.md) e o plano corrente em
+> [`ROADMAP.md`](ROADMAP.md). Este documento continua valendo como registro das
+> **decisões** tomadas e do raciocínio por trás delas.
+
 **Data de consolidação:** 24/07/2026  
 **Projeto:** `mastertool-rankine-bridge`  
 **Ambiente-alvo:** MasterTool IEC XE 3.63 / MT8500, baseado em CODESYS  
@@ -376,10 +383,10 @@ Interfaces confirmadas incluem `IList`, `ICollection`, `IReadOnlyList` e `IReadO
 
 | Índice | Nome | is_folder | type GUID | object GUID |
 |---:|---|---:|---|---|
-| 0 | Project Settings | False | `8753fe6f-4a22-4320-8103-e553c4fc8e04` | `00000000-0000-0000-0000-000000000144` |
-| 1 | Device | False | `225bfe47-7336-4dbc-9419-4105a7c831fa` | `00000000-0000-0000-0000-000000000208` |
-| 2 | Project Information | False | `085afe48-c5d8-4ea5-ab0d-b35701fa6009` | `00000000-0000-0000-0000-000000000106` |
-| 3 | `__VisualizationStyle` | False | `8e687a04-7ca7-42d3-be06-fcbda676c5ef` | `00000000-0000-0000-0000-000000000137` |
+| 0 | Project Settings | False | `8753fe6f-4a22-4320-8103-e553c4fc8e04` | `6470a90f-b7cb-43ac-9ae5-94b2338b4573` |
+| 1 | Device | False | `225bfe47-7336-4dbc-9419-4105a7c831fa` | `ec2ca054-836f-492f-a95f-f296c4785352` |
+| 2 | Project Information | False | `085afe48-c5d8-4ea5-ab0d-b35701fa6009` | `11c0fc3a-9bcf-4dd8-ac38-efb93363e521` |
+| 3 | `__VisualizationStyle` | False | `8e687a04-7ca7-42d3-be06-fcbda676c5ef` | `5cce1091-f902-4a48-9357-89653e070a0d` |
 
 ### 8.4. Filhos de Device
 
@@ -394,7 +401,7 @@ Primeiro filho:
 name: Plc Logic
 is_folder: False
 type: 40b404f9-e5dc-42c6-907f-c89f4a517386
-guid: 00000000-0000-0000-0000-000000000177
+guid: ab0a1c6e-c69e-41f6-bb2a-9601c4989dbb
 ```
 
 Estrutura completa observada:
@@ -521,10 +528,10 @@ Project
 │   │       ├── Task Configuration
 │   │       ├── SystemPOUs/UserPOUs
 │   │       ├── SystemEvents
-│   │       ├── FuncoesExemplo
-│   │       ├── TiposDadosExemplo
-│   │       ├── PrgHookExemplo
-│   │       ├── UnidadesAuxExemplo
+│   │       ├── Blocos
+│   │       ├── Estruturas
+│   │       ├── RK_HOOK
+│   │       ├── TPVs
 │   │       └── outros objetos de software
 │   └── Configuration
 │       └── NX3005
@@ -639,7 +646,7 @@ Checksums:
 
 Validação manual:
 
-- SHA-256 do FB `FB_VALVULA_EXEMPLO` recalculado;
+- SHA-256 do FB `Valvula_Simples` recalculado;
 - hash coincidente;
 - preservação exata confirmada por amostragem.
 
@@ -1043,7 +1050,7 @@ Casos úteis:
 - `Sincroniza_Balancas`;
 - `Var_SD`;
 - `Sessao_BP`;
-- `FB_VALVULA_EXEMPLO`;
+- `Valvula_Simples`;
 - arrays;
 - estruturas;
 - `:=` e `=>`.
@@ -1055,7 +1062,7 @@ find symbol Estado_OP
 find writes Estado_OP
 find reads IN_PERM_DESCARGA
 find calls Sincroniza_Balancas
-find callers FB_VALVULA_EXEMPLO
+find callers Valvula_Simples
 find type Sessao_BP
 ```
 
@@ -1360,7 +1367,7 @@ Este arquivo é o checkpoint narrativo central do projeto.
 **Data:** 2026-07-24
 **Commits:** 12, sequenciais, `36dda15`→`523f443` (sobre a base de `14e4bbb`+`264aeb1`;
 14 commits no total no repositório) — lista completa e detalhada em
-relatorios de validacao internos (nao publicados). Tag de baseline: `v0.1.0`.
+`RELATORIO-VALIDACAO-v0.1.0.md`. Tag de baseline: `v0.1.0`.
 **Fase:** encerramento do gate de indexação semântica + primeira integração
 externa (API Python + MCP), como gate de estabilização antes de novos
 recursos — autorizado explicitamente pelo usuário.
@@ -1382,7 +1389,7 @@ disciplina de verificação, não pelos subagentes que implementaram as
 fatias originais: direção semântica trocada de `find_calls` (commit
 `8124ed0`) e `load_query_bundle` não recarregando os tipos DUT/STRUCT do
 disco (corrigido dentro do commit `e44d4a6`). Ver `docs/13-static-project-indexer.md`
-(arquitetura completa) e relatorios de validacao internos (nao publicados) (relatório de
+(arquitetura completa) e `RELATORIO-VALIDACAO-v0.1.0.md` (relatório de
 validação, métricas de teste, amostragem manual).
 
 **Novas APIs confirmadas:** nenhuma API nova do MasterTool/CODESYS — este

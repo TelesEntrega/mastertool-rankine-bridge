@@ -21,19 +21,19 @@ def test_struct_simples_membro_escalar_unico() -> None:
 
 def test_struct_com_membro_tipo_definido_pelo_usuario_texto_cru() -> None:
     text = (
-        "TYPE PrgValvulasExemplo :\n"
+        "TYPE Valvulas :\n"
         "STRUCT\n"
         "\tAbre : BOOL;\n"
-        "\tPrgParametrosExemplo : PrgPrgPrgParametrosExemploExemploAuxExemplo;\n"
+        "\tParametros : Parametros_TPV;\n"
         "END_STRUCT\n"
         "END_TYPE\n"
     )
-    symbol, diags = parse_dut_declaration(text, "f.st", "n2", "PrgValvulasExemplo")
+    symbol, diags = parse_dut_declaration(text, "f.st", "n2", "Valvulas")
 
     assert symbol is not None
     assert not diags.has_errors
-    param_member = next(m for m in symbol.members if m.name == "PrgParametrosExemplo")
-    assert param_member.declared_type == "PrgPrgPrgParametrosExemploExemploAuxExemplo"
+    param_member = next(m for m in symbol.members if m.name == "Parametros")
+    assert param_member.declared_type == "Parametros_TPV"
     assert param_member.is_array is False
 
 
@@ -41,7 +41,7 @@ def test_struct_com_array_de_outro_struct() -> None:
     text = (
         "TYPE ContainerMotores :\n"
         "STRUCT\n"
-        "\tMotores : ARRAY[1..8] OF ST_Equipamento;\n"
+        "\tMotores : ARRAY[1..8] OF ST_Motor;\n"
         "END_STRUCT\n"
         "END_TYPE\n"
     )
@@ -52,7 +52,7 @@ def test_struct_com_array_de_outro_struct() -> None:
     member = symbol.members[0]
     assert member.is_array is True
     assert member.array_dimensions == [("1", "8")]
-    assert member.declared_type == "ARRAY[1..8] OF ST_Equipamento"
+    assert member.declared_type == "ARRAY[1..8] OF ST_Motor"
 
 
 def test_alias_simples() -> None:
@@ -68,14 +68,14 @@ def test_alias_simples() -> None:
 
 def test_enum_real_kind_unknown_com_diagnostic_informativo() -> None:
     text = (
-        "TYPE E_EstadoExemplo :\n"
+        "TYPE E_EstadoTransporte :\n"
         "(\n"
         "    AGUARDANDO_INICIO           := 0,\n"
         "    LIGA_BOMBA_VACUO            := 1\n"
         ") INT;\n"
         "END_TYPE\n"
     )
-    symbol, diags = parse_dut_declaration(text, "f.st", "n5", "E_EstadoExemplo")
+    symbol, diags = parse_dut_declaration(text, "f.st", "n5", "E_EstadoTransporte")
 
     assert symbol is not None
     assert symbol.kind == "unknown"
@@ -87,7 +87,7 @@ def test_enum_real_kind_unknown_com_diagnostic_informativo() -> None:
 
 def test_comentarios_fim_de_linha_e_linha_inteira_nunca_viram_membro() -> None:
     text = (
-        "TYPE Equipamento :\n"
+        "TYPE Motor :\n"
         "STRUCT\n"
         "\tLiga_Auto\t:\tBOOL; // comentario\n"
         "//\tSelecao_Modo\t:\tINT;\n"
@@ -96,7 +96,7 @@ def test_comentarios_fim_de_linha_e_linha_inteira_nunca_viram_membro() -> None:
         "END_STRUCT\n"
         "END_TYPE\n"
     )
-    symbol, diags = parse_dut_declaration(text, "f.st", "n6", "Equipamento")
+    symbol, diags = parse_dut_declaration(text, "f.st", "n6", "Motor")
 
     assert symbol is not None
     assert not diags.has_errors
@@ -192,15 +192,15 @@ def test_localizacao_linha_coluna_type_symbol_e_membros() -> None:
 
 def test_saida_deterministica_mesma_entrada_duas_vezes() -> None:
     text = (
-        "TYPE Equipamento :\n"
+        "TYPE Motor :\n"
         "STRUCT\n"
         "\tLiga_Auto : BOOL;\n"
         "\tRetornoDisjuntor : BOOL;\n"
         "END_STRUCT\n"
         "END_TYPE\n"
     )
-    symbol1, diags1 = parse_dut_declaration(text, "f.st", "n14", "Equipamento")
-    symbol2, diags2 = parse_dut_declaration(text, "f.st", "n14", "Equipamento")
+    symbol1, diags1 = parse_dut_declaration(text, "f.st", "n14", "Motor")
+    symbol2, diags2 = parse_dut_declaration(text, "f.st", "n14", "Motor")
 
     assert symbol1 is not None and symbol2 is not None
     assert symbol1.to_dict() == symbol2.to_dict()

@@ -122,6 +122,23 @@ FASES_DE_W9 = {
 FASES_ENCERRADAS.update(FASES_DE_W9)
 TODAS_AS_FASES.update(FASES_DE_W9)
 
+# W10 -- ALTERACAO DE OBJETO PREEXISTENTE (fase R2). A allowlist e a menor
+# possivel: `replace` e `save_as`. A diferenca para W1_3A/W1_3B nao esta nos
+# verbos -- esta em o alvo ser preexistente, e no executor conferir o hash
+# anterior MEDIDO antes de sobrescrever.
+FASES_DE_W10 = {
+    "W10_EDIT_EXISTING": frozenset(["replace", "save_as"]),
+    "W10_VERIFY_BUILD": frozenset(["build"]),
+    # REVERSAO. Allowlist IDENTICA a da alteracao, e fases PROPRIAS: desfazer
+    # usa o mesmo mecanismo com o mesmo rigor, mas nao e um detalhe da mesma
+    # sessao que fez. Autorizada pela fase da alteracao, uma reversao poderia
+    # rodar dentro dela, e "alterou e desfez" ficaria indistinguivel de
+    # "alterou" no registro.
+    "W10_REVERT": frozenset(["replace", "save_as"]),
+    "W10_REVERT_VERIFY_BUILD": frozenset(["build"]),
+}
+TODAS_AS_FASES.update(FASES_DE_W10)
+
 FASE_ATIVA = None
 
 AUTORIZADAS_AGORA = (TODAS_AS_FASES[FASE_ATIVA] if FASE_ATIVA
@@ -387,7 +404,9 @@ def test_as_DUAS_fases_sem_save_as_e_por_que():
     sem_persistencia = sorted(
         fase for fase, ops in safety.PHASE_ALLOWED_OPERATIONS.items()
         if "save_as" not in ops)
-    assert sem_persistencia == ["W1_5_MEASURE_IEC_BIRTH", "W2_VERIFY_BUILD",
+    assert sem_persistencia == ["W10_REVERT_VERIFY_BUILD",
+                                "W10_VERIFY_BUILD", "W1_5_MEASURE_IEC_BIRTH",
+                                "W2_VERIFY_BUILD",
                                 "W3_VERIFY_BUILD", "W4_VERIFY_BUILD",
                                 "W5_VERIFY_BUILD", "W6_VERIFY_BUILD",
                                 "W7_VERIFY_BUILD", "W8_VERIFY_BUILD",
@@ -458,7 +477,9 @@ def test_build_so_aparece_nas_SETE_fases_que_o_declararam():
     assert "build" in safety.MASTERTOOL_MUTATING_OPERATIONS
     com_build = sorted(f for f, ops in safety.PHASE_ALLOWED_OPERATIONS.items()
                        if "build" in ops)
-    assert com_build == ["W1_4_INTEGRATED_BUILD", "W2_VERIFY_BUILD",
+    assert com_build == ["W10_REVERT_VERIFY_BUILD",
+                         "W10_VERIFY_BUILD", "W1_4_INTEGRATED_BUILD",
+                         "W2_VERIFY_BUILD",
                          "W3_VERIFY_BUILD", "W4_VERIFY_BUILD",
                          "W5_VERIFY_BUILD", "W6_VERIFY_BUILD",
                          "W7_VERIFY_BUILD", "W8_VERIFY_BUILD",

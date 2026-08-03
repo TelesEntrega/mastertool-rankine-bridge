@@ -155,8 +155,8 @@ class FakeChildrenCollection(object):
         return self._items[index]
 
 
-TARGET_NAME = "FB_PISCA_EXEMPLO"
-TARGET_GUID = "00000000-0000-0000-0000-000000000002"
+TARGET_NAME = "BLINK_QUE_FUNCIONA"
+TARGET_GUID = "beca53e2-8466-404a-baf5-9fba1adc0fac"
 TARGET_TYPE_GUID = "6f9dac99-8de1-4efc-8465-68ac443b7d08"
 
 

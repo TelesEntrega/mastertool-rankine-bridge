@@ -1,5 +1,12 @@
 # Importação controlada (Fase 4 — bloqueada)
 
+> **HISTÓRICO — SUPERADO.** Este documento descreve um estado que já não é o
+> vigente. Ele é preservado sem alteração como registro do que se sabia na
+> época. O estado corrente está em [`CURRENT_STATUS.md`](CURRENT_STATUS.md);
+> o plano corrente, em [`ROADMAP.md`](ROADMAP.md).
+>
+> **O que mudou:** esta página descreve a importação de objeto no MasterTool IEC XE 3.63, que continua não habilitada. Ela NÃO descreve a autoria controlada no MasterTool X, que é outro mecanismo (API tipada `create_*` + `IScriptTextDocument`) e está comprovada em campo. Não leia esta página como afirmação sobre o MasterTool X — o contrato vigente é `28-contrato-escrita-controlada-mastertool-x.md`.
+
 ## Estado
 
 `09_import_selected_object.py`, `10_validate_import.py` e `11_rollback.py`

@@ -73,7 +73,7 @@ PROBE_16_STATE = STATE_SCANNING
 
 # --- transições OBSERVADAS ----------------------------------------------------
 
-# Derivadas de 10 execuções reais arquivadas em `C:\mastertool-bridge-runs`,
+# Derivadas de 10 execuções reais arquivadas em `C:\mastertool-rankine-bridge-runs`,
 # lendo `status-history.jsonl`. São EVIDÊNCIA, não desenho: o que está aqui
 # aconteceu de fato. Transição legítima que ainda não ocorreu simplesmente não
 # está nesta lista — ausência de observação não é prova de impossibilidade,

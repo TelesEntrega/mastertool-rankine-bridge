@@ -1,5 +1,9 @@
 # Matriz de compatibilidade
 
+> **PONTEIRO.** Esta página cobre **interpretadores e ambiente de execução**. A
+> compatibilidade por **produto, versão e template** — o que foi qualificado
+> onde — está em [`../COMPATIBILITY_MATRIX.md`](../COMPATIBILITY_MATRIX.md).
+
 ## Interpretadores
 
 | Ambiente | Interpretador | Restrições |

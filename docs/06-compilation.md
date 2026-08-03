@@ -1,5 +1,12 @@
 # Compilação e coleta de mensagens (Fase 3 — não implementada)
 
+> **HISTÓRICO — SUPERADO.** Este documento descreve um estado que já não é o
+> vigente. Ele é preservado sem alteração como registro do que se sabia na
+> época. O estado corrente está em [`CURRENT_STATUS.md`](CURRENT_STATUS.md);
+> o plano corrente, em [`ROADMAP.md`](ROADMAP.md).
+>
+> **O que mudou:** a compilação deixou de ser "Fase 3 não implementada". O `build` é chamado, e as mensagens são lidas por `system.get_message_objects` iterando as categorias — o default devolveria vazio, que leria como build sem erro. Ver `37-execucao-w1-4-autoria-integrada.md`.
+
 ## Estado
 
 `06_compile_project.py` e `07_collect_messages.py` são estruturas informativas.

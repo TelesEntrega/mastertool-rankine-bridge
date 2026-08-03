@@ -35,7 +35,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$BaseProject = 'C:\Exemplos\TemplateExemplo v1\TemplateExemplo v1.project',
+    [string]$BaseProject = 'C:\Pasta Com Espacos\TemplateExemplo v1\TemplateExemplo v1.project',
     [string]$ExpectedBaseSha256 = '596625796e4efd54d3cc2d6286e858b683f0f58de66ab9a36eed532dd1d815f5',
     [long]$ExpectedBaseSizeBytes = 503040,
 

@@ -34,17 +34,17 @@ def test_project_symbol_index_backward_compatible_without_type_symbols() -> None
 
 
 def test_project_symbol_index_indexes_types_by_name() -> None:
-    struct_a = _type("Equipamento", "struct")
+    struct_a = _type("Motor", "struct")
     alias_x = _type("X", "alias", alias_target="Y")
 
     index = ProjectSymbolIndex([], type_symbols=[struct_a, alias_x])
 
-    assert index.types_by_name["Equipamento"] == [struct_a]
+    assert index.types_by_name["Motor"] == [struct_a]
     assert index.types_by_name["X"] == [alias_x]
 
 
 def test_resolve_alias_target_non_alias_returns_self() -> None:
-    struct_a = _type("Equipamento", "struct")
+    struct_a = _type("Motor", "struct")
     index = ProjectSymbolIndex([], type_symbols=[struct_a])
 
     result = resolve_alias_target(struct_a, index)

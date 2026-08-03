@@ -312,24 +312,24 @@ def test_find_reads_dotted_partially_resolved_reference() -> None:
     refs = [
         _ref_entry(
             "application/prg/0#stmt0",
-            "VarEquipamentosExemplo.MT01.RetornoDisjuntor",
+            "VarMotores.MT01.RetornoDisjuntor",
             "read",
             resolution_state="partially_resolved",
             resolved_symbol="application/gvl/0",
-            resolved_prefix="VarEquipamentosExemplo.MT01",
+            resolved_prefix="VarMotores.MT01",
             unresolved_suffix="RetornoDisjuntor",
             reason="member metadata unavailable",
         )
     ]
     bundle = _bundle([], resolved_references=refs)
 
-    result = find_reads(bundle, "VarEquipamentosExemplo.MT01.RetornoDisjuntor")
+    result = find_reads(bundle, "VarMotores.MT01.RetornoDisjuntor")
 
     assert result.status == "found"
     assert result.count == 1
     entry = result.evidence[0]
     assert entry["resolution_state"] == "partially_resolved"
-    assert entry["resolved_prefix"] == "VarEquipamentosExemplo.MT01"
+    assert entry["resolved_prefix"] == "VarMotores.MT01"
     assert entry["unresolved_suffix"] == "RetornoDisjuntor"
 
 
@@ -676,7 +676,7 @@ def test_load_query_bundle_valid_files_builds_symbol_index(tmp_path) -> None:
 
 def _struct_type_dict(
     node_id: str = "types/0",
-    name: str = "ST_Equipamento",
+    name: str = "ST_Motor",
     members: list[dict] | None = None,
 ) -> dict:
     return TypeSymbol(
@@ -719,10 +719,10 @@ def test_load_query_bundle_reads_type_index_and_populates_type_symbols(tmp_path)
 
     assert len(bundle.symbol_index.type_symbols) == 1
     type_symbol = bundle.symbol_index.type_symbols[0]
-    assert type_symbol.name == "ST_Equipamento"
+    assert type_symbol.name == "ST_Motor"
     assert type_symbol.kind == "struct"
     assert [m.name for m in type_symbol.members] == ["RetornoDisjuntor"]
-    assert "ST_Equipamento" in bundle.symbol_index.types_by_name
+    assert "ST_Motor" in bundle.symbol_index.types_by_name
 
 
 def test_load_query_bundle_missing_type_index_file_gives_empty_type_symbols(tmp_path) -> None:
@@ -800,9 +800,9 @@ def test_load_query_bundle_struct_member_chain_resolves_via_find_symbol(tmp_path
     gvl = PouSymbol(
         node_id="application/gvl/0",
         pou_kind="GVL",
-        name="VarEquipamentosExemplo",
+        name="VarMotores",
         file="gvl.st",
-        variables=[_var("MT01", "ST_Equipamento", "VAR_GLOBAL")],
+        variables=[_var("MT01", "ST_Motor", "VAR_GLOBAL")],
     )
     write_json(tmp_path / "symbols.json", [gvl.to_dict()])
     write_json(tmp_path / "resolved-calls.json", [])
@@ -813,12 +813,12 @@ def test_load_query_bundle_struct_member_chain_resolves_via_find_symbol(tmp_path
         tmp_path / "type-index.json",
         {
             "declared_type_usage": {},
-            "types": [_struct_type_dict(name="ST_Equipamento")],
+            "types": [_struct_type_dict(name="ST_Motor")],
         },
     )
 
     bundle = load_query_bundle(tmp_path)
-    result = find_symbol(bundle, "VarEquipamentosExemplo.MT01.RetornoDisjuntor")
+    result = find_symbol(bundle, "VarMotores.MT01.RetornoDisjuntor")
 
     assert result.status == "resolved"
     assert result.count == 1

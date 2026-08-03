@@ -22,7 +22,7 @@ if str(SCRIPTS_MASTERTOOL) not in sys.path:
 from common import device_first_child_probe as dfcp  # noqa: E402
 
 EXPECTED_DEVICE_TYPE_GUID = "225bfe47-7336-4dbc-9419-4105a7c831fa"
-EXPECTED_DEVICE_OBJECT_GUID = "00000000-0000-0000-0000-000000000208"
+EXPECTED_DEVICE_OBJECT_GUID = "ec2ca054-836f-492f-a95f-f296c4785352"
 
 
 class FakeClrTypeInfo(object):

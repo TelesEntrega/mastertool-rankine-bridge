@@ -1,5 +1,12 @@
 # Visão geral
 
+> **HISTÓRICO — SUPERADO.** Este documento descreve um estado que já não é o
+> vigente. Ele é preservado sem alteração como registro do que se sabia na
+> época. O estado corrente está em [`CURRENT_STATUS.md`](CURRENT_STATUS.md);
+> o plano corrente, em [`ROADMAP.md`](ROADMAP.md).
+>
+> **O que mudou:** a tabela de fases desta página diz que a compilação não foi implementada e que a importação está bloqueada. As duas afirmações foram superadas: o `build` do MasterTool X é executado e verificado desde a W1.4, e a autoria controlada foi comprovada em campo de W1 a W9.
+
 O **mastertool-rankine-bridge** cria uma ponte auditável entre o MasterTool IEC XE 3.63
 (CLPs Altus Nexto, especialmente NX3008) e o ecossistema Python 3 / Git / agentes de IA.
 

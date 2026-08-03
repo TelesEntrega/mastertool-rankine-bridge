@@ -246,8 +246,8 @@ def test_operation_safety_map_matches_safety_module_semantics():
 def _valid_ladder_probe_section():
     return {
         "target_node_id": "application/9/4",
-        "expected_name": "FB_PISCA_EXEMPLO",
-        "expected_guid": "00000000-0000-0000-0000-000000000002",
+        "expected_name": "BLINK_QUE_FUNCIONA",
+        "expected_guid": "beca53e2-8466-404a-baf5-9fba1adc0fac",
         "expected_type_guid": "6f9dac99-8de1-4efc-8465-68ac443b7d08",
     }
 

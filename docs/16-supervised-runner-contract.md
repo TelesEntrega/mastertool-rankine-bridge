@@ -25,7 +25,7 @@
 ## 1. Diretório de execução (autossuficiente)
 
 ```text
-C:\mastertool-bridge-runs\<run-id>\
+C:\mastertool-rankine-bridge-runs\<run-id>\
 ├── bootstrap.py            # gerado pelo host; é o alvo do --runscript
 ├── run-config.json         # gerado pelo host; entrada do runner interno
 ├── status.json             # escrito pelo runner interno (estado corrente)
@@ -55,9 +55,9 @@ C:\mastertool-bridge-runs\<run-id>\
   "expected_application_guid": "00000000-0000-0000-0000-000000000001",
   "expected_application_type_guid": "639b491f-5557-464c-af91-1471bac9f549",
 
-  "run_dir": "C:\\mastertool-bridge-runs\\2026-07-24_17-30-00",
-  "output_dir": "C:\\mastertool-bridge-runs\\2026-07-24_17-30-00\\output",
-  "allowed_output_root": "C:\\mastertool-bridge-runs",
+  "run_dir": "C:\\mastertool-rankine-bridge-runs\\2026-07-24_17-30-00",
+  "output_dir": "C:\\mastertool-rankine-bridge-runs\\2026-07-24_17-30-00\\output",
+  "allowed_output_root": "C:\\mastertool-rankine-bridge-runs",
 
   "operations": {
     "scan_project_tree": true,
@@ -564,8 +564,8 @@ não é terminal — a execução segue para `validating`/`completed`.
 ```json
 "ladder_probe": {
   "target_node_id": "application/9/4",
-  "expected_name": "FB_PISCA_EXEMPLO",
-  "expected_guid": "00000000-0000-0000-0000-000000000002",
+  "expected_name": "BLINK_QUE_FUNCIONA",
+  "expected_guid": "beca53e2-8466-404a-baf5-9fba1adc0fac",
   "expected_type_guid": "6f9dac99-8de1-4efc-8465-68ac443b7d08"
 }
 ```
@@ -601,8 +601,8 @@ Qualquer divergência aborta com `target_identity_mismatch`, sem sondar nada.
 
 ### Alvo da primeira execução, escolhido por evidência
 
-`application/9/4` — `FB_PISCA_EXEMPLO`,
-`object_guid=00000000-0000-0000-0000-000000000002`.
+`application/9/4` — `BLINK_QUE_FUNCIONA`,
+`object_guid=beca53e2-8466-404a-baf5-9fba1adc0fac`.
 
 Critérios da escolha (não foi "o primeiro dos 25"): é `FUNCTION_BLOCK` (tem
 corpo de lógica, não é ação nem pasta); declaração de 230 caracteres, a menor
@@ -888,7 +888,7 @@ script_started -> provenance_validated -> project_identity_validated
 | `partially_resolved` | 64 | 64 |
 | `unresolved` | 61 | 61 |
 | Chamadas | 12 | 12 |
-| EntradasExemplo read-write | 522 | 522 (468 + 54 `_unresolved`) |
+| Entradas read-write | 522 | 522 (468 + 54 `_unresolved`) |
 
 Diagnósticos: `diagnostics.json` 65 (1 info + 64 warning heurísticos, **0
 erros**), `resolution-diagnostics.json` 134 info, **0 erros**.

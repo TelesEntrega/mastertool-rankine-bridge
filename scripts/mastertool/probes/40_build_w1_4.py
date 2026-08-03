@@ -99,12 +99,15 @@ ACCEPTED_BUILD_PHASES = ("W1_4_INTEGRATED_BUILD", "W2_VERIFY_BUILD",
                          "W3_VERIFY_BUILD", "W4_VERIFY_BUILD",
                          "W5_VERIFY_BUILD", "W6_VERIFY_BUILD",
                          "W7_VERIFY_BUILD", "W8_VERIFY_BUILD",
-                         "W9_VERIFY_BUILD")
+                         "W9_VERIFY_BUILD",
+                         "W10_VERIFY_BUILD",
+                         "W10_REVERT_VERIFY_BUILD")
 ACCEPTED_OPERATION_IDS = ("w1-4-integrated-build", "w2-verify-build",
                           "w3-idiomatic-call", "w4-factory-build",
                           "w5-prove-iec-package", "w6-prove-dut-and-task",
                           "w7-factory-full", "w8-prove-task-with-pou",
-                          "w9-prove-task-timing")
+                          "w9-prove-task-timing",
+                          "w10-edit-existing", "w10-revert")
 EXPECTED_CONTAINER_NAME = "Application"
 EXPECTED_CONTAINER_TYPE_GUID = "639b491f-5557-464c-af91-1471bac9f549"
 
@@ -141,6 +144,8 @@ EXPECTED_PLAN_OPERATIONS_BY_PHASE = {
     "W7_VERIFY_BUILD": ("build",),
     "W8_VERIFY_BUILD": ("build",),
     "W9_VERIFY_BUILD": ("build",),
+    "W10_VERIFY_BUILD": ("build",),
+    "W10_REVERT_VERIFY_BUILD": ("build",),
 }
 EXECUTED_OPERATION = "build"
 

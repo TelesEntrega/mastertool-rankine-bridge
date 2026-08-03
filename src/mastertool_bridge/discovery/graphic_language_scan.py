@@ -180,7 +180,7 @@ def _classify_object(
 
 def _build_path(node_id: str | None, by_node_id: dict[str, dict[str, Any]]) -> str | None:
     """Caminho na árvore como nomes separados por '/', da raiz até o
-    objeto (ex. "application/TiposDadosExemplo/Equipamento"). Segmentos sem `name`
+    objeto (ex. "application/Estruturas/Motor"). Segmentos sem `name`
     (a raiz `application` não tem `name` em flat-objects.json) usam o
     próprio `node_id` daquele nível como rótulo, para nunca produzir um
     segmento vazio/None silencioso."""

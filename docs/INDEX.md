@@ -1,5 +1,18 @@
 # Índice da documentação
 
+## Fonte canônica — leia estes primeiro
+
+| Documento | O que responde |
+|---|---|
+| [**Estado corrente**](CURRENT_STATUS.md) | onde o projeto está **hoje**. Fonte única; em divergência, vence |
+| [Roadmap até o v1.0](ROADMAP.md) | para onde se vai, com gate por fase |
+| [Matriz de capacidades](CAPABILITY_MATRIX.md) | o que está provado, e **em que grau** |
+| [Matriz de compatibilidade](COMPATIBILITY_MATRIX.md) | qual produto, versão e template |
+| [Modelo de segurança](SAFETY_MODEL.md) | o que nunca se faz, e sob que condições se escreve |
+| [Classificação documental](history/README.md) | o que cada documento é: normativo, evidência, ponteiro ou histórico |
+
+## Todo o resto
+
 - [Contexto consolidado e roadmap (checkpoint narrativo central)](PROJECT_CONTEXT_AND_ROADMAP.md)
 - [Visão geral](00-overview.md)
 - [Arquitetura](01-architecture.md)
@@ -7,8 +20,8 @@
 - [Descoberta do scripting no MasterTool 3.63 — registro de campo](03-scripting-discovery.md)
 - [Formato do export](04-export-format.md)
 - [Pipeline de análise externa](05-analysis-pipeline.md)
-- [Compilação e coleta de mensagens (Fase 3 — não implementada)](06-compilation.md)
-- [Importação controlada (Fase 4 — bloqueada)](07-controlled-import.md)
+- [Compilação e coleta de mensagens (HISTÓRICO — a compilação é executada desde a W1.4)](06-compilation.md)
+- [Importação controlada no IEC XE 3.63 (HISTÓRICO — não confundir com a autoria no MasterTool X)](07-controlled-import.md)
 - [Política de segurança](08-safety.md)
 - [Solução de problemas](09-troubleshooting.md)
 - [Roadmap](10-roadmap.md)
@@ -37,7 +50,7 @@
 - [W1.3A — execução da edição textual de GVL](33-execucao-w1-3a-edicao-gvl.md)
 - [W1.3B — execução da edição textual de PROGRAM ST](34-execucao-w1-3b-edicao-program.md)
 - [Contrato do pacote IEC mínimo — FB, FUNCTION, DUT](35-contrato-pacote-iec-minimo.md)
-- [Qualificação read-only do `TemplateExemplo v1.project`](36-qualificacao-template-template-exemplo-v1.md)
+- [Qualificação read-only do `TemplateExemplo v1.project`](36-qualificacao-template-tmf-v1.md)
 - [**W1.4 — execução da autoria integrada com build**](37-execucao-w1-4-autoria-integrada.md)
 - [Contrato de W2 — Task e Program Call](38-contrato-task-e-program-call.md)
 - [**W2 — execução do Program Call**](39-execucao-w2-program-call.md)

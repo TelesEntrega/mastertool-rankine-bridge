@@ -203,6 +203,6 @@ mastertool-bridge-mcp
 
 ## Validação
 
-Ver relatorios de validacao internos (nao publicados) para o relatório de validação completo
+Ver `RELATORIO-VALIDACAO-v0.1.0.md` para o relatório de validação completo
 (histórico de commits, métricas de teste, amostragem manual, política de
 segurança).

@@ -93,7 +93,7 @@ def test_shadowing_local_variable_wins_over_gvl_same_name() -> None:
         pou_kind="GVL",
         name="GvlMotores",
         file="f.st",
-        variables=[_var("MT01", "Equipamento", "VAR_GLOBAL")],
+        variables=[_var("MT01", "Motor", "VAR_GLOBAL")],
         is_qualified_only=False,
     )
     prg = PouSymbol(
@@ -218,7 +218,7 @@ def test_level_5_qualified_only_gvl_does_not_participate_in_implicit_lookup() ->
         pou_kind="GVL",
         name="GvlMotores",
         file="f.st",
-        variables=[_var("MT01", "Equipamento", "VAR_GLOBAL")],
+        variables=[_var("MT01", "Motor", "VAR_GLOBAL")],
         is_qualified_only=True,
     )
     index = ProjectSymbolIndex([gvl])
@@ -280,15 +280,15 @@ def test_level_6_resolves_type_reference_by_declared_type_usage() -> None:
         pou_kind="PROGRAM",
         name="MainPrg",
         file="f.st",
-        variables=[_var("someMotor", "Equipamento", "VAR")],
+        variables=[_var("someMotor", "Motor", "VAR")],
     )
     index = ProjectSymbolIndex([prg])
 
-    result = resolve_identifier("Equipamento", None, index)
+    result = resolve_identifier("Motor", None, index)
 
     assert result.state == "resolved"
     assert result.rule_applied == "type_reference"
-    # "Equipamento" não é o nome de nenhuma POU/GVL conhecida — apenas um tipo
+    # "Motor" não é o nome de nenhuma POU/GVL conhecida — apenas um tipo
     # usado; não há PouSymbol concreto para apontar.
     assert result.resolved_symbol is None
 

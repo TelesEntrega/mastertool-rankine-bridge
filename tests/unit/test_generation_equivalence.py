@@ -357,10 +357,17 @@ def test_todo_layout_declara_as_mesmas_chaves():
     """Um layout com chave a menos quebraria no meio da comparacao, depois de
     ja ter escrito parte do resultado."""
     esperadas = {"name", "subdir", "texts", "nodes", "structural_diff",
-                 "texts_shape"}
+                 "texts_shape", "completion"}
     for layout in ALL_LAYOUTS:
         assert set(layout) == esperadas, layout["name"]
         assert layout["texts_shape"] in ("mapping", "objects"), layout["name"]
     assert len({l["name"] for l in ALL_LAYOUTS}) == len(ALL_LAYOUTS)
     assert LAYOUT_W1_4["structural_diff"] is not None
     assert LAYOUT_FACTORY["structural_diff"] is None
+
+    # `completion` entrou depois: o nome do artefato de conclusão DIFERE entre
+    # as cadeias, e fixá-lo como "completion.json" fazia a distribuição de
+    # campos voláteis sair vazia em todo lote da fábrica — sem reprovar nada,
+    # porque volátil ausente não reprova.
+    assert LAYOUT_W1_4["completion"] == "completion.json"
+    assert LAYOUT_FACTORY["completion"] == "execucao/execution-completion.json"

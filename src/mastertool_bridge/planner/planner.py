@@ -89,10 +89,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from mastertool_bridge.spec.validator import validate_project_spec
+from mastertool_bridge.spec.validator import (
+    _explain_invalid_name,
+    _is_valid_iec_name,
+    validate_project_spec,
+)
+
+# Reaproveitado do validador em vez de reescrito: duas expressões para o mesmo
+# formato divergiriam, e a que envelheceria seria a cópia.
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 # Versão do contrato DESTE artefato. Família inteira da camada `src/`
 # (docs/19 §7) — nunca a string "1.0" dos artefatos de probe/export.
@@ -372,9 +381,27 @@ PROJECT_TARGET = "$project"
 EXPECTED_BEFORE_CREATED_IN_THIS_PLAN = "created_in_this_plan"
 EXPECTED_BEFORE_NOT_APPLICABLE = "not_applicable"
 
+# `measured`: o objeto JÁ EXISTIA no projeto, e o texto atual dele foi MEDIDO
+# por uma leitura read-only anterior. É a procedência que a fase R2 exige, e a
+# única que autoriza sobrescrever algo que este plano não criou.
+#
+# A diferença com `created_in_this_plan` não é de grau: lá o executor prova que
+# está sobrescrevendo um objeto que ele mesmo acabou de criar — o conteúdo
+# anterior é um esqueleto que o produto gerou, e não interessa a ninguém. Aqui
+# o conteúdo anterior é trabalho de engenharia de outra pessoa, e sobrescrevê-lo
+# sem conferir o que estava lá é a diferença entre alteração transacional e
+# escrita cega.
+#
+# O hash NÃO é declarado pelo autor da spec de cabeça: ele vem de um artefato
+# de leitura, e a spec o repete. Se o objeto mudou entre a medição e a
+# execução, os dois divergem e o executor recusa — que é exatamente o caso que
+# esta procedência existe para pegar.
+EXPECTED_BEFORE_MEASURED = "measured"
+
 EXPECTED_BEFORE_KINDS = (
     EXPECTED_BEFORE_CREATED_IN_THIS_PLAN,
     EXPECTED_BEFORE_NOT_APPLICABLE,
+    EXPECTED_BEFORE_MEASURED,
 )
 
 # --- lacunas de medição ------------------------------------------------------
@@ -535,7 +562,7 @@ def plan_to_json(plan: Any) -> str:
 
 def _node_key(family: str, name: str) -> str:
     """Chave qualificada por família, no mesmo formato que
-    `ValidationResult.creation_order` já usa (`duts:ST_Equipamento`)."""
+    `ValidationResult.creation_order` já usa (`duts:ST_Motor`)."""
     return family + ":" + name
 
 
@@ -841,7 +868,19 @@ def _check_program_calls(spec: dict, problems: list[str]) -> list[tuple[str, str
                 continue
             seen.add(called)
             pairs.append((task_name, called))
-    return sorted(pairs)
+    # ORDEM DECLARADA, não alfabética.
+    #
+    # Estes pares viram passos do plano na ordem em que saem daqui, e o
+    # executor escreve as chamadas nessa ordem. Em IEC, a ordem das chamadas
+    # dentro de uma task É a ordem de execução no ciclo: alfabetizar aqui
+    # produzia um programa que se comporta diferente do que a spec pediu, sem
+    # nenhum diagnóstico — o modo de falha "silêncio virando sucesso" que este
+    # projeto persegue. Uma spec com `["PRG_Bomba", "PRG_Alarme"]` executava
+    # o alarme primeiro.
+    #
+    # Determinismo não se perde: a ordem da spec é tão determinística quanto a
+    # alfabética, e agora é a ordem que o autor escreveu.
+    return pairs
 
 
 # --- construção do plano -----------------------------------------------------
@@ -1012,6 +1051,127 @@ def _emit_replace_steps(ordered: list[str], nodes: dict[str, tuple[str, str]],
                 created_by_sequence=create_sequence.get(key)))
             replaced.append(location)
     return replaced
+
+
+_MODIFICATION_REQUIRED = frozenset({"family", "name", "field",
+                                    "expected_before_sha256", "text"})
+
+
+def _check_modifications(spec: Any, criados: set[str],
+                         problems: list[str]) -> list[dict]:
+    """Alterações de objeto PREEXISTENTE — o vocabulário da fase R2.
+
+    Cada entrada declara o objeto, o documento, o **hash do texto atual** e o
+    texto novo. O hash anterior não é enfeite: sem ele, sobrescrever um objeto
+    que este plano não criou é escrita cega, e a diferença entre alteração
+    transacional e escrita cega é exatamente esse campo.
+
+    Recusa alteração de objeto que a própria spec cria. As duas procedências
+    existem para casos diferentes, e misturá-las faria o executor conferir o
+    hash de um esqueleto que ele mesmo acabou de gerar — uma conferência que
+    passa sempre e não protege nada.
+    """
+    raw = spec.get("modifications", [])
+    if not isinstance(raw, list):
+        problems.append("modifications: esperado lista.")
+        return []
+
+    saida: list[dict] = []
+    vistos: set[tuple[str, str]] = set()
+    for indice, item in enumerate(raw):
+        rotulo = "modifications[%d]" % indice
+        if not isinstance(item, dict):
+            problems.append("%s: esperado objeto." % rotulo)
+            continue
+
+        desconhecidos = sorted(set(item) - _MODIFICATION_REQUIRED)
+        if desconhecidos:
+            problems.append("%s: campo(s) desconhecido(s): %s"
+                            % (rotulo, ", ".join(desconhecidos)))
+        faltando = sorted(_MODIFICATION_REQUIRED - set(item))
+        if faltando:
+            problems.append("%s: campo(s) obrigatório(s) ausente(s): %s"
+                            % (rotulo, ", ".join(faltando)))
+            continue
+
+        familia = item.get("family")
+        if familia not in TEXT_FIELDS_BY_FAMILY:
+            problems.append("%s.family: %r fora do vocabulário: %s"
+                            % (rotulo, familia,
+                               ", ".join(sorted(TEXT_FIELDS_BY_FAMILY))))
+            continue
+
+        campo = item.get("field")
+        if campo not in TEXT_FIELDS_BY_FAMILY[familia]:
+            problems.append(
+                "%s.field: %r não existe em %r; documentos: %s"
+                % (rotulo, campo, familia,
+                   ", ".join(TEXT_FIELDS_BY_FAMILY[familia])))
+            continue
+
+        nome = item.get("name")
+        if not _is_valid_iec_name(nome):
+            problems.append("%s.name: %s" % (rotulo, _explain_invalid_name(nome)))
+            continue
+
+        if nome in criados:
+            problems.append(
+                "%s: %r é criado por esta mesma spec. Alteração de preexistente "
+                "e criação são procedências diferentes — conferir o hash de um "
+                "esqueleto que o plano acabou de gerar é uma verificação que "
+                "passa sempre e não protege nada." % (rotulo, nome))
+            continue
+
+        anterior = item.get("expected_before_sha256")
+        if not isinstance(anterior, str) or not _SHA256_RE.match(anterior):
+            problems.append(
+                "%s.expected_before_sha256: esperado hex de 64 caracteres, "
+                "medido por leitura read-only do projeto — não declarado de "
+                "memória." % rotulo)
+            continue
+
+        texto = item.get("text")
+        if not isinstance(texto, str):
+            problems.append("%s.text: esperado string." % rotulo)
+            continue
+
+        chave = (nome, campo)
+        if chave in vistos:
+            problems.append(
+                "%s: %r/%s aparece mais de uma vez — duas alterações do mesmo "
+                "documento tornam indeterminado qual conteúdo fica."
+                % (rotulo, nome, campo))
+            continue
+        vistos.add(chave)
+
+        saida.append({"family": familia, "name": nome, "field": campo,
+                      "expected_before_sha256": anterior.lower(),
+                      "text": texto})
+    return saida
+
+
+def _emit_modification_steps(modifications: list[dict], steps: list[dict],
+                             text_hashes: dict[str, dict]) -> list[str]:
+    """Fase 2b: os `replace` sobre objeto PREEXISTENTE, com o hash anterior
+    MEDIDO viajando no passo."""
+    alterados: list[str] = []
+    for item in modifications:
+        location = "modify:%s:%s:%s" % (item["family"], item["name"],
+                                        item["field"])
+        raw = sha256_of_text(item["text"])
+        normalized = sha256_of_text(normalize_authoring_text(item["text"]))
+        text_hashes[location] = {"raw_sha256": raw,
+                                 "normalized_sha256": normalized}
+        steps.append(_step(
+            len(steps) + 1, operation=OPERATION_REPLACE,
+            target_kind=_replace_target_kind(item["family"], item["field"]),
+            target_name=item["name"], source_location=location,
+            expected_before_kind=EXPECTED_BEFORE_MEASURED,
+            expected_before_sha256=item["expected_before_sha256"],
+            planned_after_sha256=raw,
+            planned_after_normalized_sha256=normalized))
+        alterados.append(location)
+    return alterados
 
 
 def _derive_allowlist(steps: list[dict]) -> tuple[list[str], list[dict]]:
@@ -1220,6 +1380,13 @@ def _build_authoring_plan(spec: Any, expected_template: Any) -> PlanResult:
             "ordenação topológica não alcançou todos os objetos; ficaram "
             "pendentes: " + ", ".join(unresolved))
 
+    # A validação das alterações entra ANTES deste portão, e não depois.
+    # Depois dele, um problema seria anexado a um plano que já saiu — e o
+    # plano sairia `executable: True` carregando uma modificação malformada,
+    # que é o oposto de fail-closed.
+    modificacoes = _check_modifications(
+        spec, {nome for _familia, nome in nodes.values()}, problems)
+
     if problems:
         return PlanResult(problems=problems, plan=None)
 
@@ -1230,6 +1397,12 @@ def _build_authoring_plan(spec: Any, expected_template: Any) -> PlanResult:
     _emit_create_steps(ordered, nodes, objects, steps, create_sequence)
     replaced = _emit_replace_steps(ordered, nodes, objects, steps,
                                    create_sequence, text_hashes)
+
+    # Fase 2b: alterações de objeto PREEXISTENTE (R2). Vêm DEPOIS das criações
+    # e dos seus replaces, e antes das chamadas: um objeto alterado pode ser
+    # alvo de uma chamada emitida em seguida, e o contrário não acontece.
+    alterados = _emit_modification_steps(modificacoes, steps, text_hashes)
+    replaced = replaced + alterados
 
     task_names = sorted(
         task["name"] for task in spec.get("tasks", [])

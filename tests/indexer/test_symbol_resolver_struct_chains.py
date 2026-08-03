@@ -84,15 +84,15 @@ def _fb(node_id: str, name: str, variables: list[VariableDeclaration] | None = N
 
 def test_gvl_struct_instance_member_resolved() -> None:
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
-    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "Equipamento")])
+    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "Motor")])
     index = ProjectSymbolIndex([gvl], type_symbols=[motor])
 
     result = resolve_dotted_reference("GVL_A.Instancia.RetornoDisjuntor", None, index)
 
     assert result.state == "resolved"
-    assert result.resolved_symbol == "app/type/Equipamento"
+    assert result.resolved_symbol == "app/type/Motor"
     assert result.variable is not None
     assert result.variable.name == "RetornoDisjuntor"
 
@@ -125,7 +125,7 @@ def test_gvl_nested_struct_member_two_levels_resolved() -> None:
 
 def test_gvl_array_of_structs_with_index_resolved() -> None:
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
     gvl = _gvl(
         "app/gvl/0",
@@ -133,7 +133,7 @@ def test_gvl_array_of_structs_with_index_resolved() -> None:
         variables=[
             _var(
                 "ArrayDeStructs",
-                "ARRAY[0..3] OF Equipamento",
+                "ARRAY[0..3] OF Motor",
                 is_array=True,
                 array_dimensions=[("0", "3")],
             )
@@ -144,7 +144,7 @@ def test_gvl_array_of_structs_with_index_resolved() -> None:
     result = resolve_dotted_reference("GVL_A.ArrayDeStructs[2].RetornoDisjuntor", None, index)
 
     assert result.state == "resolved"
-    assert result.resolved_symbol == "app/type/Equipamento"
+    assert result.resolved_symbol == "app/type/Motor"
     assert result.variable is not None
     assert result.variable.name == "RetornoDisjuntor"
 
@@ -156,16 +156,16 @@ def test_gvl_array_of_structs_with_index_resolved() -> None:
 
 def test_gvl_struct_via_simple_alias_resolved() -> None:
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
-    alias_type = _alias("app/type/EquipamentoAlias", "EquipamentoAlias", target="Equipamento")
-    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "EquipamentoAlias")])
+    alias_type = _alias("app/type/MotorAlias", "MotorAlias", target="Motor")
+    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "MotorAlias")])
     index = ProjectSymbolIndex([gvl], type_symbols=[motor, alias_type])
 
     result = resolve_dotted_reference("GVL_A.Instancia.RetornoDisjuntor", None, index)
 
     assert result.state == "resolved"
-    assert result.resolved_symbol == "app/type/Equipamento"
+    assert result.resolved_symbol == "app/type/Motor"
     assert result.variable is not None
     assert result.variable.name == "RetornoDisjuntor"
 
@@ -177,9 +177,9 @@ def test_gvl_struct_via_simple_alias_resolved() -> None:
 
 def test_gvl_struct_via_chained_alias_resolved() -> None:
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
-    alias_b = _alias("app/type/B", "B", target="Equipamento")
+    alias_b = _alias("app/type/B", "B", target="Motor")
     alias_a = _alias("app/type/A", "A", target="B")
     gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "A")])
     index = ProjectSymbolIndex([gvl], type_symbols=[motor, alias_b, alias_a])
@@ -187,7 +187,7 @@ def test_gvl_struct_via_chained_alias_resolved() -> None:
     result = resolve_dotted_reference("GVL_A.Instancia.RetornoDisjuntor", None, index)
 
     assert result.state == "resolved"
-    assert result.resolved_symbol == "app/type/Equipamento"
+    assert result.resolved_symbol == "app/type/Motor"
     assert result.variable is not None
     assert result.variable.name == "RetornoDisjuntor"
 
@@ -236,9 +236,9 @@ def test_unknown_struct_type_name_is_partially_resolved() -> None:
 
 def test_nonexistent_member_in_known_struct_has_exact_reason() -> None:
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
-    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "Equipamento")])
+    gvl = _gvl("app/gvl/0", "GVL_A", variables=[_var("Instancia", "Motor")])
     index = ProjectSymbolIndex([gvl], type_symbols=[motor])
 
     result = resolve_dotted_reference("GVL_A.Instancia.MembroInexistente", None, index)
@@ -247,7 +247,7 @@ def test_nonexistent_member_in_known_struct_has_exact_reason() -> None:
     assert result.resolved_prefix == "GVL_A.Instancia"
     assert result.unresolved_suffix == "MembroInexistente"
     assert result.reason == "member_not_found_in_indexed_type"
-    assert result.resolved_symbol == "app/type/Equipamento"
+    assert result.resolved_symbol == "app/type/Motor"
 
 
 # ---------------------------------------------------------------------------
@@ -303,21 +303,21 @@ def test_unknown_kind_type_enum_member_access_is_partially_resolved() -> None:
 
 def test_sampled_pattern_var_motores_style_resolved() -> None:
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
-    gvl = _gvl("app/gvl/0", "VarEquipamentosExemplo", variables=[_var("MT01", "Equipamento")])
+    gvl = _gvl("app/gvl/0", "VarMotores", variables=[_var("MT01", "Motor")])
     index = ProjectSymbolIndex([gvl], type_symbols=[motor])
 
-    result = resolve_dotted_reference("VarEquipamentosExemplo.MT01.RetornoDisjuntor", None, index)
+    result = resolve_dotted_reference("VarMotores.MT01.RetornoDisjuntor", None, index)
 
     assert result.state == "resolved"
 
 
 def test_sampled_pattern_var_tpv_style_resolved() -> None:
     valvulas = _struct(
-        "app/type/PrgValvulasExemplo", "PrgValvulasExemplo", members=[_struct_member("Sensor_Aberta", "BOOL")]
+        "app/type/Valvulas", "Valvulas", members=[_struct_member("Sensor_Aberta", "BOOL")]
     )
-    gvl = _gvl("app/gvl/0", "VarTPV", variables=[_var("V6", "PrgValvulasExemplo")])
+    gvl = _gvl("app/gvl/0", "VarTPV", variables=[_var("V6", "Valvulas")])
     index = ProjectSymbolIndex([gvl], type_symbols=[valvulas])
 
     result = resolve_dotted_reference("VarTPV.V6.Sensor_Aberta", None, index)
@@ -336,12 +336,12 @@ def test_sampled_pattern_var_tpv_style_resolved() -> None:
 def test_fb_container_non_regression_still_works_alongside_struct_types() -> None:
     fb_type = _fb("app/fb/0", "FB_Equip", variables=[_var("Estado", "BOOL", scope="VAR")])
     motor = _struct(
-        "app/type/Equipamento", "Equipamento", members=[_struct_member("RetornoDisjuntor", "BOOL")]
+        "app/type/Motor", "Motor", members=[_struct_member("RetornoDisjuntor", "BOOL")]
     )
     gvl = _gvl(
         "app/gvl/0",
         "GVL_A",
-        variables=[_var("Instancia", "FB_Equip"), _var("Motor1", "Equipamento")],
+        variables=[_var("Instancia", "FB_Equip"), _var("Motor1", "Motor")],
     )
     index = ProjectSymbolIndex([fb_type, gvl], type_symbols=[motor])
 
@@ -351,4 +351,4 @@ def test_fb_container_non_regression_still_works_alongside_struct_types() -> Non
     assert fb_result.state == "resolved"
     assert fb_result.resolved_symbol == "app/fb/0"
     assert struct_result.state == "resolved"
-    assert struct_result.resolved_symbol == "app/type/Equipamento"
+    assert struct_result.resolved_symbol == "app/type/Motor"

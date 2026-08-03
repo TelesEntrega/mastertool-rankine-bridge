@@ -1,5 +1,12 @@
 # Roadmap
 
+> **HISTÓRICO — SUPERADO.** Este documento descreve um estado que já não é o
+> vigente. Ele é preservado sem alteração como registro do que se sabia na
+> época. O estado corrente está em [`CURRENT_STATUS.md`](CURRENT_STATUS.md);
+> o plano corrente, em [`ROADMAP.md`](ROADMAP.md).
+>
+> **O que mudou:** substituído por [`ROADMAP.md`](ROADMAP.md) como plano corrente.
+
 ## Entrega 1 — Fase 0 (esta entrega)
 - [x] Estrutura do repositório, documentação, configs, política de segurança
 - [x] Scripts 00-03 (smoke test, discovery, API surface, árvore)
@@ -135,7 +142,7 @@
       **segue suspenso**; reativação exige aprovação explícita separada
 - [x] **Correção dos dados do índice 0** registrados no probe 06: `type`
       (`8753fe6f-4a22-4320-8103-e553c4fc8e04`) e `guid`
-      (`00000000-0000-0000-0000-000000000144`) de "Project Settings" foram
+      (`6470a90f-b7cb-43ac-9ae5-94b2338b4573`) de "Project Settings" foram
       lidos com sucesso naquela execução (checksums re-verificados) e
       estavam registrados como "não lidos" por engano na documentação;
       corrigido — os 4 nós de topo estão integralmente identificados
@@ -246,7 +253,7 @@
       concreto/interfaces do probe 09), `Count=2` confirmado;
       `device_children[0]` confirmado. Resultado: **"Plc Logic"**
       (`is_folder=False`, `type=40b404f9-e5dc-42c6-907f-c89f4a517386`,
-      `guid=00000000-0000-0000-0000-000000000177`) — **NÃO é a Application**
+      `guid=ab0a1c6e-c69e-41f6-bb2a-9601c4989dbb`) — **NÃO é a Application**
       (então, por decisão já registrada: o próximo probe deve acessar
       somente `device_children[1]`, não comparar com `active_application`
       ainda)
@@ -340,7 +347,7 @@
       implementações, todas as 14 com ambos), **66.360 caracteres**
       exportados, nenhum limite atingido. Nenhuma escrita/compilação/acesso
       online — confirmado pela `safety_declaration` e por `errors.json`
-      vazio. Um FB real inspecionado (`FB_VALVULA_EXEMPLO`) confirma
+      vazio. Um FB real inspecionado (`Valvula_Simples`) confirma
       preservação exata (indentação com tabs/espaços mistos intacta).
       Revisão pós-execução encontrou 1 gap real no artefato gerado
       (`text-index.json` fora do schema pedido — corrigido via delta-fix,
@@ -371,7 +378,7 @@
       fuzzy), respostas fundamentadas em evidências, API Python pública
       (`mastertool_bridge.ProjectIndex`), servidor MCP fino (8 tools).
       Ver `docs/13-static-project-indexer.md` e
-      relatorios de validacao internos (nao publicados) para arquitetura e validação
+      `RELATORIO-VALIDACAO-v0.1.0.md` para arquitetura e validação
       completas. `tree_walker.py` continua suspenso — scanner e
       exportador já cobrem sua finalidade original de forma validada e
       auditável.
@@ -407,7 +414,7 @@
       controlada — **concluído** (2026-07-24): validou a cadeia completa
       MasterTool → export → índice → consulta → MCP contra uma nova
       execução real, zero divergências vs. `v0.1.0`. Ver
-      relatorios de validacao internos (nao publicados).
+      `RELATORIO-VALIDACAO-OPERACIONAL-2026-07-24.md`.
 
 ## Entrega 5 — Ladder, FBD/SFC, documentação automática e agentes (roadmap registrado 2026-07-24)
 

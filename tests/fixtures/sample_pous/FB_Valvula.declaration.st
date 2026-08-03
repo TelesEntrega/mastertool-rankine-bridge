@@ -11,5 +11,5 @@ VAR_IN_OUT
     stComando   : ST_ComandoValvula;
 END_VAR
 VAR PERSISTENT
-    iPastaAtuadoresExemplo : UDINT;
+    iAcionamentos : UDINT;
 END_VAR

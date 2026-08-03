@@ -301,13 +301,13 @@ def test_answer_symbol_partially_resolved_var_motores() -> None:
     gvl = PouSymbol(
         node_id="application/gvl/0",
         pou_kind="GVL",
-        name="VarEquipamentosExemplo",
+        name="VarMotores",
         file="f.st",
         variables=[_var("MT01", "FB_Motor", "VAR_GLOBAL")],
     )
     bundle = _bundle([fb_motor, gvl])
 
-    answer = answer_query("find symbol VarEquipamentosExemplo.MT01.RetornoDisjuntorX", bundle)
+    answer = answer_query("find symbol VarMotores.MT01.RetornoDisjuntorX", bundle)
 
     assert answer.status == "answered"
     assert "parcialmente resolvido" in answer.summary

@@ -1,5 +1,12 @@
 # Capacidades do ScriptEngine — mapa de confirmação
 
+> **PONTEIRO.** Este mapa registra a confirmação **da API** (existe? roda?). O
+> grau de maturidade de cada **operação de autoria** — `discovered`,
+> `field_proven`, `repeatable`, `template_qualified`, `version_qualified`,
+> `production_qualified` — está em
+> [`../CAPABILITY_MATRIX.md`](../CAPABILITY_MATRIX.md), que é a fonte. API
+> confirmada não é operação qualificada.
+
 Estado de cada capacidade necessária ao projeto. Valores possíveis:
 `confirmada-runtime` (rodou de fato dentro do MasterTool),
 `evidência-estática` (reflection/strings sobre os binários instalados, sem

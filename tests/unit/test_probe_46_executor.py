@@ -1168,7 +1168,9 @@ def test_as_fases_aceitas_sao_conjunto_fechado():
                                        "W4_EXECUTE_PLAN",
                                        "W5_PROVE_IEC_PACKAGE",
                                        "W6_PROVE_DUT_AND_TASK",
-                                       "W7_FACTORY_FULL")
+                                       "W7_FACTORY_FULL",
+                                       "W10_EDIT_EXISTING",
+                                       "W10_REVERT")
 
 
 def test_fase_fora_do_conjunto_reprova(tmp_path):
@@ -1592,3 +1594,225 @@ def test_sem_o_enum_no_escopo_reprova_ANTES_de_escrever(tmp_path):
                              escopo_extra={"DutType": FakeDutType})
     assert resultado["status"] == probe46.STATUS_PRECONDITION_FAILED
     assert "KindOfTask" in " ".join(resultado["problems"])
+
+
+# =============================================================================
+# selecao semantica do container -- fase R0b
+# =============================================================================
+
+def _arvore_com_cartoes(cartoes):
+    """A mesma arvore, com `cartoes` cartoes de I/O inseridos ANTES do
+    `Plc Logic` -- que e o que a troca de projeto-base de 2026-07-31 fez, e o
+    que desloca todos os indices abaixo do `Device`."""
+    container = FakeContainer(filhos=[
+        FakeNode("UserPOUs", "pasta", filhos=[
+            FakeNode("UserPrg", POU_GUID, declaracao="PROGRAM UserPrg",
+                     implementacao="")]),
+    ])
+    plc = FakeNode("Plc Logic", "plc", filhos=[container])
+    filhos_device = [FakeNode("Cartao_%d" % i, "io") for i in range(cartoes)]
+    filhos_device.append(plc)
+    device = FakeNode("Device", "device", filhos=filhos_device)
+    projeto = FakeProject([FakeNode("Project Settings", "cfg"), device])
+    return projeto, container
+
+
+class NoIlegivel(FakeNode):
+    """Um no cujo nome nao pode ser lido -- o que o binding CLR faz quando o
+    objeto e transiente ou o proxy expirou."""
+
+    def get_name(self, _r):
+        raise RuntimeError("COMException: objeto indisponivel")
+
+
+def test_a_identidade_posicional_saiu_do_executor():
+    """Gate da R0b: nenhum caminho de escrita depende de `node_path`.
+
+    A constante em si nao existe mais. O teste e por ausencia porque foi a
+    presenca dela que a `CURRENT_STATUS` listava como divida -- reintroduzi-la
+    reprova aqui, com nome."""
+    assert not hasattr(probe46, "CONTAINER_NODE_PATH")
+
+
+def test_o_vocabulario_de_selecao_nao_divergiu_do_host():
+    """Mesma regra do teste de vocabulario do planner: dois runtimes, uma
+    linguagem. CPython 3 no host, IronPython 2.7 no probe, sem import entre
+    eles -- a duplicacao e legitima, divergir em silencio nao e."""
+    from mastertool_bridge.templates.selector import SELECTOR_DIAGNOSTICS
+    assert probe46.SELECTOR_DIAGNOSTICS == SELECTOR_DIAGNOSTICS
+
+
+@pytest.mark.parametrize("cartoes", [1, 3, 7])
+def test_cartao_de_io_desloca_indices_e_a_execucao_continua(tmp_path, cartoes):
+    """A prova da fase, no executor e nao so no modulo puro: com cartoes sob o
+    `Device`, `root/1/0/0` deixaria de apontar para o `Application`, e o plano
+    executa do mesmo jeito."""
+    projeto, _c = _arvore_com_cartoes(cartoes)
+    resultado, _p, _s = _run(tmp_path, projeto=projeto)
+    assert resultado["status"] == probe46.STATUS_EXECUTED
+    selecao = resultado["container_selection"]
+    assert selecao["diagnostic"] == probe46.SELECTOR_DIAG_RESOLVED
+    # O node_path do container MUDOU com os cartoes, e a execucao nao mudou:
+    # e a demonstracao de que ele virou diagnostico, nao identidade.
+    assert selecao["candidates"] == ["root/1/%d/0" % cartoes]
+
+
+def test_dois_containers_recusam_antes_de_qualquer_escrita(tmp_path):
+    projeto, _c = _arvore_com_cartoes(0)
+    device = projeto._filhos[1]
+    device._filhos.append(FakeNode("Plc Logic", "plc", filhos=[FakeContainer()]))
+
+    resultado, _p, safety = _run(tmp_path, projeto=projeto)
+    assert resultado["status"] == probe46.STATUS_PRECONDITION_FAILED
+    assert resultado["container_selection"]["diagnostic"] == \
+        probe46.SELECTOR_DIAG_AMBIGUOUS
+    assert len(resultado["container_selection"]["candidates"]) == 2
+    # O ponto do gate: a recusa acontece ANTES de o gate de escrita ser tocado.
+    assert safety.requested == []
+
+
+def test_container_ausente_recusa_com_nome_proprio(tmp_path):
+    projeto = FakeProject([FakeNode("Project Settings", "cfg")])
+    resultado, _p, safety = _run(tmp_path, projeto=projeto)
+    assert resultado["status"] == probe46.STATUS_PRECONDITION_FAILED
+    assert resultado["container_selection"]["diagnostic"] == \
+        probe46.SELECTOR_DIAG_NO_MATCH
+    assert safety.requested == []
+
+
+def test_no_ilegivel_recusa_mesmo_com_o_container_encontrado(tmp_path):
+    """A recusa sutil: o `Application` foi achado, e mesmo assim a execucao
+    para. Com um no que nao pode ser lido, ninguem pode afirmar que nao existe
+    um segundo container -- e escrever no primeiro seria apostar."""
+    projeto, _c = _arvore_com_cartoes(0)
+    projeto._filhos.append(NoIlegivel("?", "?"))
+
+    resultado, _p, safety = _run(tmp_path, projeto=projeto)
+    assert resultado["status"] == probe46.STATUS_PRECONDITION_FAILED
+    selecao = resultado["container_selection"]
+    assert selecao["diagnostic"] == probe46.SELECTOR_DIAG_UNREADABLE
+    assert selecao["unreadable"] == 1
+    # O candidato continua reportado -- recusar nao e esconder o que se viu.
+    assert selecao["candidates"] == ["root/1/0/0"]
+    assert safety.requested == []
+
+
+def test_a_selecao_entra_no_artefato_tambem_quando_recusa(tmp_path):
+    """Sem isto, uma recusa nao diz onde o probe procurou -- e essa e a
+    informacao que decide se o template mudou ou se o seletor ficou fraco."""
+    projeto = FakeProject([FakeNode("Project Settings", "cfg")])
+    resultado, _p, _s = _run(tmp_path, projeto=projeto)
+    selecao = resultado["container_selection"]
+    assert selecao["visited"] > 0
+    assert selecao["selector"]["name"] == "Application"
+    assert selecao["selector"]["expected_cardinality"] == 1
+    assert selecao["diagnostic"] in probe46.SELECTOR_DIAGNOSTICS
+
+
+def test_a_selecao_do_container_vai_para_o_ARQUIVO_e_nao_so_a_memoria(tmp_path):
+    """ACHADO do piloto de 2026-08-02.
+
+    As tres runs recusaram com "1 no ilegivel" e o artefato em disco nao dizia
+    QUAL no. O diagnostico existia no dicionario `result` -- e os testes
+    conferiam justamente esse dicionario, nao o arquivo. `execution-manifest`
+    tem lista FIXA de campos, e `container_selection` nao estava nela.
+    """
+    import io as _io
+    import json as _json
+
+    projeto = FakeProject([FakeNode("Project Settings", "cfg")])   # sem container
+    resultado, _p, _s = _run(tmp_path, projeto=projeto)
+    assert resultado["status"] == probe46.STATUS_PRECONDITION_FAILED
+
+    # `write_artifacts` é o gravador real — quem o chama é o `main`, e o teste
+    # exercita `run_executor`. Chamá-lo aqui é o que faz este teste conferir o
+    # ARQUIVO, que é justamente o que faltava.
+    escritos = probe46.write_artifacts(resultado, file_io)
+    assert "execution-manifest.json" in escritos
+
+    manifesto = _json.loads(_io.open(
+        os.path.join(resultado["artifacts_dir"], "execution-manifest.json"),
+        encoding="utf-8").read())
+    assert "container_selection" in manifesto
+    selecao = manifesto["container_selection"]
+    assert selecao["diagnostic"] == probe46.SELECTOR_DIAG_NO_MATCH
+    assert selecao["visited"] > 0
+    assert selecao["selector"]["name"] == "Application"
+
+
+# =============================================================================
+# R2 -- alteracao de objeto PREEXISTENTE, com hash anterior medido
+# =============================================================================
+
+def _spec_com_modificacao(sha_anterior, texto_novo="xNovo := TRUE;"):
+    return {
+        "schema_version": 1,
+        "template": {"id": "TemplateExemplo_v1", "sha256": "5966257" + "0" * 57},
+        "modifications": [{
+            "family": "programs", "name": "UserPrg", "field": "implementation",
+            "expected_before_sha256": sha_anterior, "text": texto_novo,
+        }],
+    }
+
+
+def _sha_do_texto(texto):
+    import hashlib
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+def test_alteracao_de_preexistente_confere_o_texto_ANTERIOR(tmp_path):
+    """O invariante da fase R2. Sem esta leitura, `expected_before_sha256`
+    seria decorativo e a alteração seria escrita cega."""
+    atual = "// implementacao antiga\n"
+    projeto, _c = _arvore(userprg_impl=atual)
+    spec = _spec_com_modificacao(_sha_do_texto(atual))
+
+    resultado, projeto_final, safety = _run(
+        tmp_path, spec=spec, projeto=projeto,
+        safety=FakeSafety(allowed=("replace", "save_as")))
+    assert resultado["status"] == probe46.STATUS_EXECUTED, resultado["problems"]
+    conferidos = [p for p in resultado["step_log"]
+                  if p.get("outcome") == "before_hash_verified"]
+    assert len(conferidos) == 1
+    assert conferidos[0]["before_sha256_observed"] == _sha_do_texto(atual)
+
+
+def test_objeto_alterado_desde_a_medicao_RECUSA(tmp_path):
+    """O caso que a fase existe para pegar: alguém editou o objeto entre a
+    leitura e a execução. Sobrescrever descartaria conteúdo que ninguém
+    examinou."""
+    projeto, _c = _arvore(userprg_impl="// alguem editou depois da medicao\n")
+    spec = _spec_com_modificacao(_sha_do_texto("// o que foi medido\n"))
+
+    resultado, _p, safety = _run(
+        tmp_path, spec=spec, projeto=projeto,
+        safety=FakeSafety(allowed=("replace", "save_as")))
+    assert resultado["status"] == probe46.STATUS_BEFORE_HASH_MISMATCH
+    assert any("mudou desde a medicao" in p for p in resultado["problems"])
+    # E nada foi escrito.
+    assert "replace" not in safety.requested
+
+
+def test_o_status_de_hash_anterior_e_DIFERENTE_do_de_texto_novo():
+    """As duas divergências pedem ações opostas: uma manda remedir o projeto,
+    a outra manda refazer o plano."""
+    assert (probe46.STATUS_BEFORE_HASH_MISMATCH
+            != probe46.STATUS_TEXT_HASH_MISMATCH)
+    assert probe46.STATUS_BEFORE_HASH_MISMATCH in probe46.ALL_STATUSES
+    assert probe46.EXIT_BY_STATUS[probe46.STATUS_BEFORE_HASH_MISMATCH] == 2
+
+
+def test_procedencia_medida_sem_hash_recusa(tmp_path):
+    """Declarar `measured` sem o hash seria pior que não declarar: promete uma
+    conferência que não acontece."""
+    atual = "// antiga\n"
+    projeto, _c = _arvore(userprg_impl=atual)
+    spec = _spec_com_modificacao(_sha_do_texto(atual))
+    plano = build_authoring_plan(spec).plan
+    for passo in plano["steps"]:
+        if passo.get("expected_before_kind") == "measured":
+            passo["expected_before_sha256"] = None
+
+    resultado, _p, _s = _run(tmp_path, spec=spec, plano=plano, projeto=projeto,
+                             safety=FakeSafety(allowed=("replace", "save_as")))
+    assert resultado["status"] == probe46.STATUS_BEFORE_HASH_MISMATCH

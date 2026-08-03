@@ -297,8 +297,8 @@ def test_run_config_rejects_empty_required_field():
 def _make_ladder_probe_config() -> LadderProbeConfig:
     return LadderProbeConfig(
         target_node_id="application/9/4",
-        expected_name="FB_PISCA_EXEMPLO",
-        expected_guid="00000000-0000-0000-0000-000000000002",
+        expected_name="BLINK_QUE_FUNCIONA",
+        expected_guid="beca53e2-8466-404a-baf5-9fba1adc0fac",
         expected_type_guid="6f9dac99-8de1-4efc-8465-68ac443b7d08",
     )
 
@@ -353,7 +353,7 @@ def test_run_config_to_dict_emits_ladder_probe_section_with_exact_four_fields():
     assert set(data["ladder_probe"].keys()) == {
         "target_node_id", "expected_name", "expected_guid", "expected_type_guid"}
     assert data["ladder_probe"]["target_node_id"] == "application/9/4"
-    assert data["ladder_probe"]["expected_name"] == "FB_PISCA_EXEMPLO"
+    assert data["ladder_probe"]["expected_name"] == "BLINK_QUE_FUNCIONA"
 
 
 def test_run_config_to_dict_omits_ladder_probe_when_absent():
@@ -656,8 +656,8 @@ def test_orchestrate_run_ladder_only_completes(tmp_path, monkeypatch):
 
     ladder_probe_dict = {
         "target_node_id": "application/9/4",
-        "expected_name": "FB_PISCA_EXEMPLO",
-        "expected_guid": "00000000-0000-0000-0000-000000000002",
+        "expected_name": "BLINK_QUE_FUNCIONA",
+        "expected_guid": "beca53e2-8466-404a-baf5-9fba1adc0fac",
         "expected_type_guid": "6f9dac99-8de1-4efc-8465-68ac443b7d08",
     }
 
@@ -1087,7 +1087,7 @@ def test_orchestrate_run_no_index_requested_with_incomplete_export_does_not_repr
 # erro nenhum, e o runner interno so descobriu depois.
 #
 # O --runscript escapou por acidente naquele run: o caminho
-# C:\mastertool-bridge-runs\<run-id>\bootstrap.py nao tem espaco, entao
+# C:\mastertool-rankine-bridge-runs\<run-id>\bootstrap.py nao tem espaco, entao
 # nao foi citado. Por isso estes testes usam DE PROPOSITO um caminho de
 # projeto COM espacos -- sem isso, o defeito passa despercebido.
 # =============================================================================
@@ -1096,7 +1096,7 @@ from mastertool_bridge.automation.supervised_run import build_command_line
 
 _EXE = r"C:\Program Files (x86)\Altus\MT8500 3.63\MT8500\Common\MT8500.exe"
 _PROJ = r"C:\Users\x\Pasta Com Espacos\Projeto Teste\ExemploPlanta V1.0 COPIA.project"
-_BOOT = r"C:\mastertool-bridge-runs\2026-01-01_00-00-00\bootstrap.py"
+_BOOT = r"C:\mastertool-rankine-bridge-runs\2026-01-01_00-00-00\bootstrap.py"
 
 
 def test_command_line_quotes_the_value_not_the_whole_token():
@@ -1174,8 +1174,8 @@ def _base_cli_argv():
 def _ladder_target_argv():
     return [
         "--ladder-target-node-id", "application/9/4",
-        "--ladder-expected-name", "FB_PISCA_EXEMPLO",
-        "--ladder-expected-guid", "00000000-0000-0000-0000-000000000002",
+        "--ladder-expected-name", "BLINK_QUE_FUNCIONA",
+        "--ladder-expected-guid", "beca53e2-8466-404a-baf5-9fba1adc0fac",
         "--ladder-expected-type-guid", "6f9dac99-8de1-4efc-8465-68ac443b7d08",
     ]
 

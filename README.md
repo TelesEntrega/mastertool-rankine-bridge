@@ -1,111 +1,54 @@
 # mastertool-rankine-bridge
 
-Ponte entre o **MasterTool** (Altus) e ferramentas externas em Python 3, em duas
-metades que se sustentam:
+Ponte offline entre o **MasterTool** (IEC XE 3.63/3.70 e **MasterTool X /
+MT9000 4.1.0.11**) e Python 3: leitura de projeto, análise estática, indexação
+IEC 61131-3, consultas determinísticas, servidor MCP e — sob aprovação
+humana, gate por gate — **autoria controlada de objetos de projeto**.
 
-- **Ler** — exportação estruturada, indexação semântica, análise estática e
-  versionamento em Git de projetos existentes (IEC XE 3.63/3.70).
-- **Escrever** — uma **fábrica de projetos** para o MasterTool X (MT9000
-  4.1.0.11): de uma especificação declarativa em JSON sai um projeto que
-  compila, sob um gate de escrita controlada que autoriza uma operação por vez.
+> **Este README é um resumo.** O estado vigente, verificável e datado é
+> [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) — é ele, não este
+> arquivo, a fonte canônica. Em caso de conflito entre os dois, vale
+> `CURRENT_STATUS.md`.
 
-```text
-spec.json → planner (offline) → plano de autoria → executor → .project → build
-```
+## Estado em uma frase
 
-> **Somente leitura continua sendo a base.** `READ_ONLY_PHASE = True` nunca é
-> desligado; a escrita acontece por uma **fase nomeada** cuja allowlist literal
-> autoriza operações uma a uma, sempre em cópia descartável. Nenhum script aqui
-> faz download, entra em modo online ou toca o CLP — e isso não é configurável.
+A autoria de objetos (GVL, PROGRAM, FUNCTION, FUNCTION_BLOCK, DUT, Task,
+Program Call, propriedades de Task) foi **provada em execuções de campo reais
+contra o MasterTool X**, incluindo sobre o projeto-base real do cliente, com
+build limpo e verificação por reabertura independente (`docs/37`, `docs/39`,
+`docs/42`, `docs/46`, `docs/47`, `docs/48`, `docs/49`). Isso é capacidade
+medida, não intenção — e não é a mesma coisa que "autorizado a rodar agora":
+ver a seção seguinte.
 
-## O que a fábrica prova, e como
+Detalhe completo, marco a marco: [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md),
+[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) e
+[`docs/18-estado-e-proximo-passo.md`](docs/18-estado-e-proximo-passo.md).
 
-Treze operações de autoria, cada uma **exercida contra o produto real** dentro
-de uma cadeia que persistiu (`save_as`) e compilou (`build`) — nunca declarada a
-partir da existência da API:
+## Todo portão de escrita está fechado
 
-| | |
-| --- | --- |
-| Objetos IEC | GVL, PROGRAM, FUNCTION, FUNCTION_BLOCK, DUT (STRUCT/ENUM) |
-| Estrutura | task, vínculo de programa, chamada idiomática, tempo de task |
-| Cadeia | texto, persistência, reabertura, compilação, verificação |
+`CONTROLLED_WRITE_PHASE = None` e `READ_ONLY_PHASE = True` em
+`scripts/mastertool/common/safety.py`. Nenhuma operação mutável roda hoje.
+Abrir uma fase de escrita é **decisão humana, em commit isolado**, que nunca
+carrega implementação junto — o procedimento está em
+[`docs/28-contrato-escrita-controlada-mastertool-x.md`](docs/28-contrato-escrita-controlada-mastertool-x.md)
+§14. Capacidade provada em campo e gate aberto para uso são coisas
+diferentes; este projeto nunca confunde as duas.
 
-Um projeto de máquina com 7 objetos de 5 famílias, gerado **duas vezes** sobre
-cópias novas: 0 erros, 0 avisos, 7 de 7 objetos verificados, conteúdo
-equivalente entre as duas gerações. Os registros de execução estão em
-`docs/37` a `docs/49`, um por marco — incluindo os que reprovaram.
+## Limites de segurança (permanentes, não negociáveis)
 
-### A distinção que sustenta o resto
+Estes limites não mudam com nenhuma fase futura do roadmap:
 
-`cataloged` (a API existe no catálogo) **≠** `field_proven` (a operação foi
-medida numa cadeia completa). O planner é *fail-closed* na segunda: ele recusa
-emitir plano executável com operação não provada, e a prova exige citar a
-execução que a produziu. Marcar sem medir seria declarar em vez de medir — e um
-teste que fazia exatamente isso foi o primeiro defeito que essa separação pegou.
+- **nunca** modifica o arquivo original de um projeto — toda escrita ocorre
+  em cópia de trabalho descartável, com `save_as` para arquivo novo;
+- **nunca** faz download, login, modo online, `start`/`stop`, `force` ou
+  qualquer acionamento de saída física;
+- **nunca** toca o CLP;
+- **nenhuma mudança crítica é aplicada sem aprovação humana explícita.**
 
-> **Nomes de projeto neste repositório são fictícios.** A ferramenta foi
-> desenvolvida e validada contra um projeto real de planta, que não é publicado.
-> Todo identificador de exemplo na documentação e nos testes (`ExemploPlanta`,
-> `TemplateExemplo v1`, `FB_PISCA_EXEMPLO`, `VarEquipamentosExemplo`, GUIDs
-> `00000000-...`) é um substituto neutro, **não** uma API do MasterTool nem um
-> valor a copiar. Os nomes que pertencem à plataforma CODESYS/Altus —
-> `Application`, `Device`, `Plc Logic`, `MainPrg`, `SystemPOUs`,
-> `Task Configuration`, `UserPrg` — foram mantidos porque documentam o
-> ambiente, não um projeto específico.
->
-> Consequência prática: os `expected_*_guid` de configuração vêm como
-> placeholder. Isso é deliberado — os probes **falham fechado** até você
-> configurar a identidade do seu próprio projeto, em vez de carregar a
-> identidade de outra pessoa. Os SHA-256 citados nos registros de execução
-> referem-se ao projeto-base real e, portanto, a um arquivo que não está aqui.
+Formalizado em `config/safety-policy.yaml`, [`docs/08-safety.md`](docs/08-safety.md)
+e no contrato [`docs/28`](docs/28-contrato-escrita-controlada-mastertool-x.md).
 
-## O que o projeto faz (hoje)
-
-- Scripts IronPython para rodar **dentro** do MasterTool (menu de scripting):
-  - `00_smoke_test.py` — verifica que o ambiente de scripting funciona;
-  - `01_discover_environment.py` — inventaria objetos globais e APIs disponíveis;
-  - `02_dump_api_surface.py` — introspecção segura da superfície de API (whitelist);
-  - `scripts/mastertool/probes/` — probes de descoberta empírica, executados e
-    confirmados em runtime real contra `ExemploPlanta V1.0.project` (navegação,
-    identidade de nós, coleção de filhos em múltiplos níveis — ver
-    `docs/api/mastertool-api-observations.md` e `docs/10-roadmap.md`);
-  - `common/read_only_project_scanner.py` — **`ReadOnlyProjectScanner`**:
-    varredura recursiva, somente leitura, com limites obrigatórios
-    (profundidade/total de nós/filhos por nó), isolamento de falhas por ramo
-    e saída inteiramente serializável (ver
-    `docs/11-read-only-project-scanner.md`). Implementado e testado
-    externamente; execução real ainda não autorizada.
-  - `common/read_only_text_exporter.py` — **`ReadOnlyTextExporter`**:
-    exportação textual somente leitura da subárvore da Application
-    (declaração/implementação ST), com portões booleanos obrigatórios
-    (`has_textual_declaration`/`has_textual_implementation`) antes de
-    qualquer leitura de texto, limites obrigatórios adicionais (objetos
-    textuais/caracteres) e preservação exata do texto (sem normalização,
-    com SHA-256 por documento — ver `docs/12-read-only-text-export.md`).
-    Implementado e testado externamente; execução real ainda não autorizada.
-- CLI externa `mastertool-bridge` (Python 3.11+) para validar, inspecionar, indexar
-  e analisar os exports gerados.
-- Schemas JSON, política de segurança formalizada, testes unitários da camada externa.
-
-## O que o projeto NÃO faz
-
-- Não altera o projeto original do MasterTool.
-- Não compila (feature `compile` desabilitada por padrão).
-- Não importa alterações (scripts 09–11 são estruturas desabilitadas).
-- Não realiza nenhuma operação online: login, download, start/stop, force, escrita em saídas.
-- Não altera configuração de hardware.
-
-## Requisitos
-
-- Windows com MasterTool IEC XE 3.63 instalado (para os scripts internos).
-- Python 3.11+ (para a camada externa).
-- Git.
-
-O interpretador interno do MasterTool é assumido como **IronPython 2.7**
-(ecossistema CODESYS ScriptEngine) até evidência em contrário — ver
-`docs/03-scripting-discovery.md`.
-
-## Instalação da camada externa
+## Instalação e execução dos testes
 
 ```bash
 python -m venv .venv
@@ -113,68 +56,90 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 pip install -e .
 pytest
-mastertool-bridge --help
 ```
 
-## Como executar os scripts internos no MasterTool
+Duas armadilhas de medição, documentadas por terem custado tempo real:
 
-1. Abra o MasterTool IEC XE 3.63 com um projeto carregado.
-2. Localize o menu de scripting (tipicamente *Ferramentas → Scripting → Executar script*;
-   registre o caminho real em `docs/03-scripting-discovery.md`).
-3. Execute, nesta ordem:
-   1. `scripts/mastertool/00_smoke_test.py`
-   2. `scripts/mastertool/01_discover_environment.py`
-   3. `scripts/mastertool/02_dump_api_surface.py`
-   4. `scripts/mastertool/03_list_project_tree.py`
-4. Os artefatos são gravados em `workspace/exports/<timestamp>/` e logs em `workspace/logs/`.
+- **rode com o diretório de trabalho na raiz deste repositório.** Executado
+  a partir do diretório pai, o `pytest` também coleta o repositório
+  sanitizado vizinho e a coleta morre com dezenas de erros — isso é ambiente,
+  não regressão do projeto;
+- **não passe `-q` de novo.** `addopts = "-q"` já está em `pyproject.toml`;
+  repetir a flag vira `-qq` e o `pytest` suprime a linha de resumo — a suíte
+  parece não reportar contagem nenhuma, quando na verdade só ficou silenciosa.
 
-Atalhos `.bat` em `scripts/windows/` abrem as pastas e mostram instruções.
+O Python base da máquina não é fonte válida de dependência — instale sempre
+pela `.venv` provisionada por `requirements-dev.txt` (há guarda em
+`tests/unit/test_test_infrastructure.py`).
 
-## Validando um export
+## Pontos de entrada
+
+CLI externa (`src/mastertool_bridge/cli.py`, comando `mastertool-bridge`):
 
 ```bash
-mastertool-bridge validate-export workspace/exports/<diretorio>
-mastertool-bridge inspect workspace/exports/<diretorio>
-mastertool-bridge index workspace/exports/<diretorio>
-mastertool-bridge find-symbol workspace/exports/<diretorio> NomeDoSimbolo
+mastertool-bridge validate-export <export_dir>
+mastertool-bridge inspect <export_dir>
+mastertool-bridge index <export_dir>
+mastertool-bridge analyze <export_dir>
+mastertool-bridge document <export_dir>
+mastertool-bridge compare <export_dir_a> <export_dir_b>
+mastertool-bridge find-symbol <export_dir> <nome>
+mastertool-bridge find-reads <export_dir> <variavel>
+mastertool-bridge find-writes <export_dir> <variavel>
+mastertool-bridge build-agent-context <export_dir>
+mastertool-bridge validate-change-set <change_set.json>
+mastertool-bridge verify-cli-probe --results-dir <dir>
+mastertool-bridge supervised-snapshot ...   # orquestração avançada, ver docs/16
 ```
 
-## Política de segurança
+Servidor MCP (`src/mastertool_bridge/mcp_server.py`, comando
+`mastertool-bridge-mcp`), ferramentas expostas via `@mcp.tool()`:
+`open_project_index`, `get_index_metadata`, `find_symbol`, `find_reads`,
+`find_writes`, `find_calls`, `find_callers`, `ask_project`. Todas operam
+sobre um índice já construído em disco — nenhuma escreve no MasterTool.
 
-Formalizada em `config/safety-policy.yaml` e `docs/08-safety.md`. Resumo:
+Scripts internos (IronPython, executados **dentro** do MasterTool, com UI
+visível e supervisão humana) ficam em `scripts/mastertool/` — ver
+[`docs/03-scripting-discovery.md`](docs/03-scripting-discovery.md) e
+[`docs/16-supervised-runner-contract.md`](docs/16-supervised-runner-contract.md).
 
-1. Toda operação de escrita futura exigirá: cópia de trabalho → backup → diff textual
-   → validação estrutural → compilação → **aprovação humana**.
-2. Operações online e download são proibidos pela política, não apenas desencorajados.
-3. Alterações de risco **crítico** (saídas físicas, `%Q`, segurança de máquina,
-   hardware, redes industriais) nunca são aplicadas automaticamente.
+## Como isto é verificado
 
-## Estado das fases
+Nenhuma fase fecha por declaração. A escala de maturidade — normativa em
+[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) — é:
 
-| Fase | Descrição | Estado |
-|------|-----------|--------|
-| 0 | Descoberta do ambiente | Scripts prontos — aguardando execução no MasterTool |
-| 1 | Exportação somente leitura | Parcial: árvore (`03`); exportador completo (`04`) pendente de validação da Fase 0 |
-| 2 | Análise externa | Base implementada (parser tolerante, busca de referências, validador) |
-| 3 | Compilação e validação | Não implementada (desabilitada por configuração) |
-| 4 | Importação controlada | Não implementada (bloqueada por política) |
+```text
+discovered           API identificada por reflexão/catálogo
+field_proven         executada uma vez contra o produto, com evidência real
+repeatable           repetida em execuções independentes
+template_qualified   validada sobre um Template Profile específico
+version_qualified    validada sobre uma versão específica do MasterTool
+production_qualified passou por testes negativos, falhas induzidas e escala
+```
 
-## Limitações conhecidas
-
-- Nenhuma API do MasterTool foi confirmada ainda neste ambiente; os scripts usam
-  acesso defensivo (introspecção + adaptadores) e registram o que não encontrarem.
-- O parser IEC 61131-3 é **tolerante e heurístico**, não um compilador; resultados de
-  análise são alertas para revisão humana.
-- Objetos gráficos (LD/FBD/SFC) podem não ter exportação textual; o export registra
-  metadados e segue adiante.
-
-## Dependências
-
-Runtime externo: `pyyaml`, `jsonschema`. Dev: `pytest`. Qualquer dependência nova
-deve ser justificada aqui antes de adicionada. Scripts IronPython não usam nenhuma
-dependência externa.
+`field_proven` exige uma execução real citável (relatório de run numerado em
+`docs/`), nunca uma alegação. **Trabalho offline nunca promove uma
+capacidade** — só constrói o instrumento de medida; a medição em si exige
+sessão de campo com operador humano presente.
 
 ## Documentação
 
-Comece por `docs/00-overview.md` e `docs/01-architecture.md`.
-Agentes de IA devem ler `AGENTS.md` antes de qualquer tarefa.
+- [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) — estado canônico e vigente
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — plano até o v1.0
+- [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) — capacidades e maturidade
+- [`docs/COMPATIBILITY_MATRIX.md`](docs/COMPATIBILITY_MATRIX.md) — versões e produtos suportados
+- [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) — modelo de segurança consolidado
+- [`docs/28-contrato-escrita-controlada-mastertool-x.md`](docs/28-contrato-escrita-controlada-mastertool-x.md) — contrato de escrita controlada
+- [`docs/INDEX.md`](docs/INDEX.md) — índice completo de toda a documentação
+
+Agentes de IA devem ler `AGENTS.md` antes de qualquer tarefa neste repositório.
+
+## Licença e distribuição
+
+Esta árvore é uso interno da Rankine Systems — ver `LICENSE`. O mirror
+público sanitizado é publicado separadamente em
+[`github.com/TelesEntrega/mastertool-rankine-bridge`](https://github.com/TelesEntrega/mastertool-rankine-bridge),
+sob Apache-2.0, por um fluxo próprio (portar mudanças → remover
+identificadores → revisar diff → testar → publicar de lá).
+
+**Esta árvore não tem remote git, por arquitetura.** Não adicionar um.

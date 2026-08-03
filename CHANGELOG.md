@@ -2,7 +2,142 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.2.0a1] — R0, consolidação e rebaseline
+
+### Adicionado
+- **Fonte canônica única de estado.** `docs/CURRENT_STATUS.md` passa a ser o
+  único documento que descreve o estado vigente; `docs/ROADMAP.md`,
+  `docs/CAPABILITY_MATRIX.md`, `docs/COMPATIBILITY_MATRIX.md`,
+  `docs/SAFETY_MODEL.md` e `docs/history/README.md` completam o conjunto
+  normativo. Documentos superados receberam cabeçalho `HISTÓRICO` apontando
+  para o substituto; **nenhum relatório de execução foi editado**.
+- **Escala de maturidade de seis níveis** (`discovered` → `production_qualified`)
+  com a regra normativa de que **`field_proven` é o teto atual**: promover
+  exige execução real do MasterTool com operador presente, e trabalho offline
+  não promove capacidade nenhuma.
+- `tests/unit/test_documentacao_coerente.py` — guarda de coerência documental:
+  classificação obrigatória de documento novo, links, âncoras, e conferência
+  do estado do gate e da contagem de operações **contra o código**.
+- `tools/check_repo_hygiene.py` + `tests/unit/test_repo_hygiene.py` — higiene
+  com **dois perfis**. No `interno` (esta árvore, sem remote) identificador de
+  cliente é bloqueio de publicação; no `publicacao` é fatal. Caminhos absolutos
+  locais preexistentes viraram **catraca**: registrados, não crescem, e só
+  podem encolher.
+- `.github/workflows/ci.yml` — CI offline. Nenhum passo lança `MT9000.exe`, e a
+  CI **não pode** promover maturidade de capacidade.
+
+### Corrigido
+- **A contagem de operações `field_proven` era treze em todo registro
+  anterior; o `EXECUTOR_CONTRACT` declara catorze**, das quais doze mutam. O
+  número passa a vir do código, com guarda automatizada.
+- **A baseline nova não estava por medir.** `docs/36` já a varreu — 42 nós,
+  `persistent_tree_sha256 162d4fd7…`, e `root/1/0/0` continua valendo apesar
+  dos cartões de I/O, **medido e não presumido**. O que falta é formalizá-la
+  como Template Profile (R0b).
+- `pyproject` sai de `0.1.0` e da descrição "somente leitura"; `LICENSE` deixa
+  de pedir que a política de distribuição seja definida — ela está definida e é
+  de duas vias (árvore interna proprietária sem remote, espelho sanitizado sob
+  Apache-2.0).
+
+### Registrado como lacuna
+- A elegibilidade do `TemplateExemplo v1.project`, resolvida pelas runs 012/016/018, **não
+  tem documento numerado de execução**. Quem lesse apenas `docs/36` concluiria
+  que o template segue inelegível.
+- `run_states.py` e `supervised_run.py` fixam `C:\mastertool-rankine-bridge-runs`
+  em código de biblioteca — dívida de maior prioridade da catraca.
+
 ## [Unreleased]
+
+### Adicionado — Pré-R1: mecanismo de repetibilidade, evidência e ciclo de vida
+- **Runner de N execuções** (`automation/repeatability.py`) e **comparador
+  N-ário** (`generation_equivalence.compare_many`). O comparador não é o
+  pareado em laço: equivalência é igualdade de valor canônico, e portanto
+  transitiva — comparar contra uma referência basta; **independência é
+  anti-reflexiva e não transitiva**, e por isso é conferida entre todos os
+  pares. Sem isso, duas execuções não-referência poderiam ter nascido com os
+  mesmos GUIDs e o lote passaria: seria uma execução copiada nove vezes.
+- **Campo volátil permitido aparece com a distribuição.** Estar na allowlist
+  dispensa de reprovar, não de ser mostrado.
+- **Evidence Bundle** (`evidence/bundle.py`) com o layout de `ROADMAP` §2.7.
+  "Imutável" aqui significa **verificável**: manifesto com sha256 por arquivo
+  e hash do conjunto, detectando alteração, remoção e acréscimo depois do
+  selo. Pacote incompleto **sela mesmo assim**, nomeando o que falta — a
+  execução que deu errado é a que mais precisa ficar registrada.
+- **Ciclo de vida do change set** (`changes/lifecycle.py`), com os dez estados
+  do roadmap, e **aprovação amarrada à evidência** (`changes/approval.py`): a
+  decisão carrega o `bundle_sha256`, e pacote alterado invalida a aprovação —
+  não por má-fé, mas porque ninguém aprovou aquilo.
+- **Descoberta do MasterTool** (`automation/mastertool_detect.py`) e
+  `detect-mastertool`. Duas instalações **recusam**, nomeando as duas: a mesma
+  disciplina de cardinalidade do seletor semântico.
+- **Relatório de qualificação em HTML** (`reports/qualification_report.py`),
+  autocontido e determinístico, no padrão visual Rankine.
+- **Vocabulário de evidência** (`audit/evidence_status.py`):
+  `no_evidence_located != contradicted`, com os quatro campos de busca
+  obrigatórios e a transição de ausência para refutação recusada sem medição
+  nova. **Integridade de síntese** (`audit/synthesis_integrity.py`): recusa —
+  não avisa — quando a cardinalidade não fecha.
+- **Baseline de cobertura medida**: 86% linha+ramo, escopo declarado, **sem
+  meta imposta** (`docs/COVERAGE_BASELINE.md`).
+- **Registro de pendências** (`docs/PENDENCIAS.md`, 88 itens de R0 a R12) e a
+  **fila de campo** (`docs/FIELD_QUALIFICATION.md`, 38 itens ligados ao marco
+  que depende de cada um).
+
+### Corrigido
+- **O gate de `repeatable` aceitava 2 execuções onde a norma exige 10.** O
+  piso passou a vir do roadmap (`MIN_INDEPENDENT_RUNS`), herdado por
+  monotonicidade pelos níveis acima.
+- **A ordem das chamadas de programa numa task era alfabetizada em silêncio.**
+  Em IEC essa é a ordem de execução no ciclo: o produto gerava um programa
+  diferente do pedido, sem diagnóstico. Corrigido no planner e no
+  `creation_order` do validador — os dois, porque corrigir um só deixaria a
+  verificação aprovando ordem que a spec não pediu.
+- **A regra de higiene não enxergava barra escapada.** `probes/43` tinha o
+  caminho de instalação fixo e produzia zero achados; os outros três eram
+  pegos por acidente, pela docstring.
+
+### Adicionado — R0b, identidade semântica e Template Profile
+- **Seleção semântica** (`src/mastertool_bridge/templates/selector.py`): um nó
+  passa a ser identificado por **nome + `type_guid` + ancestralidade +
+  cardinalidade esperada**, sobre a árvore inteira. A ancestralidade é conferida
+  como subsequência ordenada, não como caminho contíguo — fixar as camadas
+  trocaria uma suposição posicional por uma de nomenclatura. Três situações que
+  uma busca ingênua chamaria de sucesso **recusam**, cada uma com nome próprio:
+  orçamento estourado, nó ilegível e profundidade atingida com filhos por
+  varrer. Um resultado recusado nunca carrega nó: não existe "melhor
+  candidato".
+- **Template Profile** (`templates/profile.py` + `template_profile.schema.json`),
+  com o perfil congelado do `TemplateExemplo v1.project` em
+  `config/template-profiles/`. Todo campo medido carrega **proveniência** — run
+  e documento —, e a exigência é dinâmica: o campo entra na lista por estar
+  medido. Elegibilidade e maturidade são **derivadas**, em dois níveis, porque
+  o estado real exige dois: `blocking_issues` bloqueia autoria,
+  `qualification_gaps` bloqueia promoção acima de `field_proven`. O template
+  atual é autorável **e** não qualificado, ao mesmo tempo, sem contradição.
+- **Um perfil não promove a si mesmo:** declarar capacidade com
+  `capability_qualification.status = not_measured` reprova a carga, e
+  `repeatable` com uma única run também — repetibilidade exige execuções
+  independentes.
+
+### Corrigido
+- **A identidade posicional saiu do caminho de escrita.**
+  `CONTAINER_NODE_PATH = "root/1/0/0"` não existe mais no `probes/46`; o
+  container é resolvido por `select_unique_node`, e `node_path` sai no artefato
+  como diagnóstico — inclusive quando a seleção **recusa**, que é quando o
+  operador mais precisa saber onde o probe procurou. Um teste reprova se a
+  constante voltar.
+- `find_by_name_and_type` engolia erro de leitura (`read_name` devolve `None`
+  em exceção) e ignorava erro de `read_children`: um nó ilegível nunca podia
+  ser o segundo candidato, e a duplicata era **indetectável por construção**.
+  Passa a delegar à mesma implementação estrita.
+- **A guarda de higiene reprovava nas próprias fixtures.** Ela varre o que
+  `git ls-files` devolve, e o commit `3d2d7a6` rastreou o arquivo de teste que
+  contém — por necessidade — uma chave de brinquedo e um caminho absoluto de
+  exemplo. Verde antes do commit, vermelho depois, com o mesmo código. As
+  fixtures passam a ser montadas em partes: nenhuma linha rastreada contém o
+  padrão inteiro, e a regra mantém 100% do poder de detecção, sem allow-list
+  nova. O ponto cego (arquivo novo é invisível até ser commitado) ficou
+  registrado no verificador e na dívida de `CURRENT_STATUS`.
 
 ### Alterado
 - **Projeto-base trocado em 2026-07-31**: o usuário acrescentou **cartões de
@@ -107,7 +242,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   aqui. Smoke read-only em `run-012`: três passos da cadeia ok, cópia e
   original intactos, zero mutadores, zero diálogos.
 
-- **`docs/36-qualificacao-template-template-exemplo-v1.md`: o `TemplateExemplo v1.project` foi
+- **`docs/36-qualificacao-template-tmf-v1.md`: o `TemplateExemplo v1.project` foi
   QUALIFICADO e NÃO é ELEGÍVEL para autoria.** Duas sessões read-only
   (`run-010`, `run-011`) sobre cópia descartável; original nunca aberto e com
   sha idêntico antes e depois. Medido: 3 raízes, **42 nós**, `Application` em
@@ -389,7 +524,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   string `"ST"` não é apenas rejeitada, é estruturalmente impossível, porque
   `language` é um objeto `{"guid": …}` — o parâmetro real da API é
   `Nullable<Guid>`, e texto ali inventaria uma API que não existe.
-  `creation_order` usa chave qualificada por família (`duts:ST_Equipamento`) para
+  `creation_order` usa chave qualificada por família (`duts:ST_Motor`) para
   que nomes iguais em famílias diferentes não colidam no identificador.
   `type_guid` foi **deliberadamente omitido**: é dado **medido** depois da
   criação, não algo que o autor declara. `schema_version` é inteiro,

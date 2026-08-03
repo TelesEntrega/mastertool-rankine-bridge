@@ -161,12 +161,12 @@ def sem_catalogo_de_dut():
 
 
 def _run(tmp_path, projeto=None, spec=None, sha_declarado=None,
-         caminho_projeto=None):
+         caminho_projeto=None, plano_pronto=None):
     if spec is None:
         spec = _spec()
     if projeto is None:
         projeto = _arvore()
-    plano = build_authoring_plan(spec).plan
+    plano = plano_pronto if plano_pronto is not None         else build_authoring_plan(spec).plan
     caminho_plano = os.path.join(str(tmp_path), "plano.json")
     io.open(caminho_plano, "w", encoding="utf-8").write(
         json.dumps(plano, ensure_ascii=False))
@@ -299,7 +299,7 @@ def test_os_metodos_que_colidem_com_python_tem_receptor_python(tree47):
     `str`/`list`. So o RECEPTOR distingue."""
     receptores_python = {"texto", "unificado", "linhas", "filhos", "pilha",
                          "nos", "escritos", "problems", "saida", "sys.path",
-                         "entrada", "digest", "esperado"}
+                         "entrada", "digest", "esperado", "ilegiveis"}
     for no in ast.walk(tree47):
         if not isinstance(no, ast.Call) or not isinstance(no.func,
                                                           ast.Attribute):
@@ -439,3 +439,68 @@ def test_o_type_guid_de_dut_esta_catalogado_e_e_o_mesmo_para_os_subtipos():
     assert probe47.FAMILY_TYPE_GUID["duts"] == probe47.DUT_TYPE_GUID
     assert probe47.DUT_TYPE_GUID not in (probe47.POU_TYPE_GUID,
                                          probe47.GVL_TYPE_GUID)
+
+
+# =============================================================================
+# chaves de `text_hashes`: criação e ALTERAÇÃO (fase R2)
+# =============================================================================
+
+def _hashes(**por_chave):
+    return {"text_hashes": {c: {"raw_sha256": v}
+                            for c, v in por_chave.items()}}
+
+
+def test_chave_de_criacao_continua_lida():
+    esperado, ilegiveis = probe47.expected_texts(
+        _hashes(**{"gvls:GVL_A:declaration": "a" * 64}))
+    assert esperado == {("gvls", "GVL_A", "declaration"): "a" * 64}
+    assert ilegiveis == []
+
+
+def test_chave_de_ALTERACAO_e_lida_como_o_mesmo_alvo():
+    """`modify:` diz de onde o objeto veio, não o que conferir. A procedência
+    já foi verificada antes, no `expected_before` do passo (probe 46)."""
+    esperado, ilegiveis = probe47.expected_texts(
+        _hashes(**{"modify:programs:UserPrg:implementation": "b" * 64}))
+    assert esperado == {("programs", "UserPrg", "implementation"): "b" * 64}
+    assert ilegiveis == []
+
+
+def test_criacao_e_alteracao_no_MESMO_plano_convivem():
+    esperado, ilegiveis = probe47.expected_texts(_hashes(**{
+        "gvls:GVL_A:declaration": "a" * 64,
+        "modify:programs:UserPrg:implementation": "b" * 64}))
+    assert len(esperado) == 2
+    assert ilegiveis == []
+
+
+@pytest.mark.parametrize("chave", ["so_um_pedaco", "a:b", "a:b:c:d",
+                                   "rename:a:b:c", "modify:a:b",
+                                   "modify:a:b:c:d", ":b:c", "a::c",
+                                   "modify::b:c"])
+def test_chave_que_o_verificador_NAO_sabe_ler_sai_na_lista_de_ilegiveis(chave):
+    """O `continue` mudo que estava aqui era o defeito: um plano com uma
+    criação e uma alteração conferiria só a criação e sairia VERDE, com
+    metade medida. Chave ilegível não é chave ausente."""
+    esperado, ilegiveis = probe47.expected_texts(_hashes(**{chave: "c" * 64}))
+    assert esperado == {}
+    assert ilegiveis == [chave]
+
+
+def test_hash_ausente_tambem_e_ilegivel():
+    """Entrada sem `raw_sha256` não tem contra o que conferir. Aceitá-la
+    faria o objeto entrar no conjunto verificado comparando contra `None`."""
+    esperado, ilegiveis = probe47.expected_texts(
+        {"text_hashes": {"gvls:G:declaration": {"normalized_sha256": "x"}}})
+    assert esperado == {}
+    assert ilegiveis == ["gvls:G:declaration"]
+
+
+def test_ilegivel_bloqueia_a_verificacao_inteira(tmp_path):
+    """E bloqueia com mensagem PRÓPRIA: "não sei ler estas chaves" manda o
+    operador a um lugar diferente de "o plano não pediu texto nenhum"."""
+    dados = dict(build_authoring_plan(_spec()).plan)
+    dados["text_hashes"] = {"nao:sei:ler:isto": {"raw_sha256": "d" * 64}}
+    resultado = _run(tmp_path, plano_pronto=dados)
+    assert resultado["status"] == probe47.STATUS_PRECONDITION_FAILED
+    assert any("nao sabe ler" in p for p in resultado["problems"])

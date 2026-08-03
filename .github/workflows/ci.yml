@@ -1,0 +1,93 @@
+# =============================================================================
+# CI offline — fase R0 (docs/ROADMAP.md).
+#
+# Este pipeline e inteiramente offline: ele NUNCA abre o MasterTool, nunca
+# lanca um processo GUI contra o produto real, nunca executa um probe de
+# `scripts/mastertool/` (esses exigem IronPython 2.7 DENTRO do MasterTool e
+# supervisao humana visivel) e NAO PODE promover a maturidade de nenhuma
+# capacidade da escala de `docs/CAPABILITY_MATRIX.md`. Promocao acima de
+# `discovered` exige execucao real do MasterTool com operador humano
+# presente -- isso e sessao de campo, nunca CI. Nenhum passo abaixo lanca
+# `MT9000.exe`, nem tem permissao para isso.
+#
+# Por que so windows-latest: o projeto tem o Windows como plataforma-alvo (o
+# MasterTool so existe la), ha wrappers PowerShell (`scripts/mastertool/*.ps1`)
+# e ha testes que comparam literais de caminho no formato Windows
+# (`tests/unit/test_supervised_run_host.py`, `test_probe_42_43_tasks.py`
+# etc.). Nao havia ambiente Linux disponivel nesta arvore para VALIDAR
+# empiricamente a suite completa em ubuntu-latest antes de declarar o job
+# verde -- por isso ele fica de fora deste arquivo, em vez de ser adicionado
+# sem confirmacao empirica. Adicionar um job `ubuntu-latest` para as camadas
+# puramente Python e trabalho futuro, condicionado a rodar a suite inteira
+# numa maquina Linux primeiro (a exigencia era "se e somente se a suite
+# passar la" -- ela nao foi testada la).
+# =============================================================================
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias de desenvolvimento
+        run: pip install -r requirements-dev.txt
+
+      - name: Instalar o pacote em modo editavel
+        run: pip install -e .
+
+      - name: Rodar a suite de testes (a partir da raiz do repositorio)
+        # cwd precisa ser a raiz do repo: rodar do diretorio pai coleta um
+        # repositorio vizinho e morre em erro de coleta (docs/18).
+        run: pytest
+
+      - name: Empacotar (build)
+        # `build` e ferramenta de CI apenas -- decisao deliberada de nao
+        # declara-la em requirements-dev.txt para nao acrescentar dependencia
+        # de desenvolvimento que ninguem usa fora do pipeline.
+        run: |
+          pip install build
+          python -m build
+
+      - name: Higiene do repositorio -- perfil interno
+        # Perfil `interno`: esta arvore NAO tem remote, por arquitetura. Aqui
+        # reprovam tamanho, extensao binaria indevida, segredo e caminho
+        # absoluto local NOVO. Identificador de cliente e listado como
+        # bloqueio de PUBLICACAO, e nao reprova -- o portao dele e o job
+        # abaixo.
+        run: python tools/check_repo_hygiene.py --profile interno
+
+  portao-de-publicacao:
+    # Este job NAO bloqueia a CI da arvore interna. Ele existe para que o
+    # relatorio do que precisa ser sanitizado ANTES de publicar no espelho
+    # `mastertool-rankine-bridge` esteja sempre disponivel e atualizado, em
+    # vez de ser reconstruido de memoria no dia da publicacao.
+    #
+    # Espera-se que ele reprove enquanto a arvore interna citar nome de
+    # projeto de cliente -- isso e o estado normal, nao uma regressao.
+    runs-on: windows-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Relatorio do portao de publicacao
+        run: python tools/check_repo_hygiene.py --profile publicacao

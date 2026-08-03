@@ -170,8 +170,8 @@ SAFETY_DECLARATION = {
 # Alvo padrao para execucao STANDALONE deste probe (--runscript) -- IDENTICO
 # ao default dos probes 16/17/18 (mesmo alvo, mesma evidencia de escolha).
 DEFAULT_TARGET_NODE_ID = "application/9/4"
-DEFAULT_EXPECTED_NAME = "FB_PISCA_EXEMPLO"
-DEFAULT_EXPECTED_GUID = "00000000-0000-0000-0000-000000000002"
+DEFAULT_EXPECTED_NAME = "BLINK_QUE_FUNCIONA"
+DEFAULT_EXPECTED_GUID = "beca53e2-8466-404a-baf5-9fba1adc0fac"
 DEFAULT_EXPECTED_TYPE_GUID = "6f9dac99-8de1-4efc-8465-68ac443b7d08"
 
 

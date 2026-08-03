@@ -911,8 +911,21 @@ def write_artifacts(result, file_io):
         return None
     file_io.ensure_dir(artifacts_dir)
     written = []
+    # A ANALISE CARREGA A IDENTIDADE DO ARQUIVO QUE ELA QUALIFICA.
+    #
+    # `qualify-analysis.json` e o artefato que a fabrica consulta para decidir
+    # se um template e elegivel para autoria, e ate 2026-08-02 ele nao dizia de
+    # QUAL arquivo falava -- o sha256 do projeto so existia no
+    # `qualify-completion.json`, que a fabrica nao le. Duas execucoes, uma
+    # qualificacao: dava para autorizar escrita num projeto apresentando a
+    # qualificacao de outro, e nada detectaria.
+    #
+    # Isto nao acrescenta medicao nenhuma. So leva a medicao que ja existia
+    # para o arquivo onde a decisao e tomada.
+    analise = dict(result.get("analysis") or {})
+    analise["project"] = result.get("project")
     file_io.write_json(os.path.join(artifacts_dir, "qualify-analysis.json"),
-                       result.get("analysis") or {})
+                       analise)
     written.append("qualify-analysis.json")
     if (result.get("analysis") or {}).get("registry_candidate"):
         file_io.write_json(os.path.join(artifacts_dir, "template-registry-candidate.json"),

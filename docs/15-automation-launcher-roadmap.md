@@ -304,7 +304,7 @@ Duas execuções, uma variável trocada entre elas:
 
 ```text
 argv[0] '...\Pasta Com Espacos\...\15_validate_command_line_execution.py'
-argv[1] '--output=C:\Agente'
+argv[1] '--output=C:\Pasta Com Espacos\Agente'
 argv[2] 'IA'
 argv[3] 'MasterTool\mastertool-rankine-bridge\workspace\logs\cli-probe\t2'
 ```
@@ -324,7 +324,7 @@ diferentes, e não há aspas que resolvam pelo lado do chamador — testamos
 
 **Efeito colateral da execução com espaços**: a camada 1 do probe "teve
 sucesso" gravando no caminho truncado e **criou o diretório**
-`C:\Agente\`, fora do
+`C:\Pasta Com Espacos\Agente\`, fora do
 repositório. Artefatos preservados em
 `workspace/logs/cli-probe/_evidencia-execucao-com-espacos/`.
 

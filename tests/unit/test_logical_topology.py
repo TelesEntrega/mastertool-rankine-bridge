@@ -492,7 +492,7 @@ def test_unresolved_connections_never_appear_in_edges():
 # --- 18. POU real -------------------------------------------------------------
 
 REAL_EXPORT = Path(
-    "C:/mastertool-bridge-runs/2026-07-29_10-14-54/output/plcopen-export"
+    "C:/mastertool-rankine-bridge-runs/2026-07-29_10-14-54/output/plcopen-export"
     "/export-root/pou-export")
 
 

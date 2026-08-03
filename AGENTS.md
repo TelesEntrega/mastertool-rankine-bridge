@@ -25,7 +25,12 @@ Leia e obedeça integralmente antes de qualquer tarefa.
    `tests/`, `scripts/maintenance/`.
 6. **Warning heurístico ≠ erro confirmado.** As análises (`analysis/`) são
    heurísticas; apresente-as como alertas para revisão humana, nunca como certeza.
-7. **Não faça commit automaticamente.** Commits somente quando o usuário solicitar.
+7. **Commits são autônomos dentro de uma tarefa autorizada** (decisão do
+   operador, 2026-08-01/02). Não peça permissão a cada commit — mas mantenha a
+   disciplina: um assunto por commit, suíte verde antes, documentação afetada
+   no mesmo slice, e **abertura/fechamento de gate sempre em commit isolado**,
+   sem implementação junto (`docs/28` §14). Push, PR, merge e tag continuam
+   exigindo pedido explícito, e esta árvore **não tem remote por arquitetura**.
 8. **Não instale bibliotecas** sem autorização explícita; justifique no README.
 9. **`dir()` nunca é fonte de verdade** sobre objetos do ScriptEngine (proxies
    dinâmicos como `ExtendedObject<T>` retornam `dir()` vazio mesmo com membros
@@ -58,6 +63,37 @@ Leia e obedeça integralmente antes de qualquer tarefa.
     (e seus `.text`) só podem ser acessados depois que o indicador booleano
     correspondente vier **confirmado e estritamente `True`** — nunca acesso
     especulativo. Ver `docs/12-read-only-text-export.md`.
+
+14. **Execução autônoma da bateria de verificação e dos lotes qualificados.**
+    Decisão do operador em 2026-08-02, registrada com o risco à vista. Rode
+    **sem pedir confirmação a cada vez**:
+
+    - a bateria offline inteira: suíte `pytest`, `tools/check_repo_hygiene.py`,
+      guarda de coerência documental, `preflight-batch`, geração de relatório;
+    - probes **read-only** no MasterTool;
+    - o **lote de repetibilidade com escrita**, incluindo abrir e fechar
+      `CONTROLLED_WRITE_PHASE` e rodar `run_repeatability_batch.ps1 -Execute`.
+
+    O que esta regra **não** afrouxa, e continua valendo integralmente:
+
+    - regra 4 (nenhuma operação online: login, download, start/stop, force,
+      escrita em saída) e `config/safety-policy.yaml`;
+    - regra 2 (o projeto original nunca é alterado — toda escrita é em cópia
+      descartável, com hash de origem conferido antes e depois);
+    - o gate **fecha assim que o estágio termina**. Não se deixa fase de
+      escrita aberta enquanto se prepara o estágio seguinte, nem entre
+      sessões;
+    - `preflight-batch` verde é **precondição**, não formalidade: qualquer
+      recusa impede a sessão;
+    - promoção de maturidade continua exigindo medição — nenhum lote promove
+      capacidade por si só, e um lote reprovado é reportado como reprovado.
+
+    **Risco aceito e nomeado pelo operador:** com a janela do produto sem
+    ninguém olhando, um diálogo inesperado do MasterTool não é visto por
+    ninguém. A mitigação existente é a cópia descartável, o timeout do wrapper
+    e o journal — não a supervisão humana. Se um diálogo travar a sessão, o
+    sintoma será timeout e artefato ausente, e isso **reprova o lote** em vez
+    de passar despercebido.
 
 ## Como trabalhar
 

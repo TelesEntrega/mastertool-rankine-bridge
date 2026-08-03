@@ -25,7 +25,7 @@ Ladder. Ele responde:
 
 E não responde nada além disso.
 
-## 2. EntradasExemplo
+## 2. Entradas
 
 A entrada é **exclusivamente** o `GraphicPOU` já produzido por
 `plcopen/ladder_parser.py`:
@@ -455,7 +455,7 @@ no repositório**, e pula com motivo explícito quando ausente.
 ## 14. Números da POU real atual
 
 A implementação deve reproduzir, sobre o export real já validado
-(relatorios de validacao internos (nao publicados)):
+(`RELATORIO-BASELINE-v0.2.0-ladder-structure.md`):
 
 | Do modelo canônico | |
 |---|---|

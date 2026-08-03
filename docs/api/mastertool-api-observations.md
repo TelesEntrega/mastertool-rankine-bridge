@@ -585,7 +585,7 @@ Execução real contra `ExemploPlanta V1.0.project` (cópia, sem online).
 |--------|--------|-------|
 | `is_folder` | confirmed | `False` |
 | `type` | confirmed | GUID `8753fe6f-4a22-4320-8103-e553c4fc8e04` (tipo confirmado `System.Guid`) |
-| `guid` | confirmed | GUID `00000000-0000-0000-0000-000000000144` (tipo confirmado `System.Guid`, `persistence_status: unverified`) |
+| `guid` | confirmed | GUID `6470a90f-b7cb-43ac-9ae5-94b2338b4573` (tipo confirmado `System.Guid`, `persistence_status: unverified`) |
 | `get_name(False)` | confirmed | `"Project Settings"` |
 
 **Tipo .NET real do primeiro filho**: `_3S.CoDeSys.ScriptDriverProjects.ScriptObject`
@@ -651,10 +651,10 @@ usaram `confirmed_dotnet_type` após `GetType()` confirmar `System.Guid`).
 
 | Índice | Nome (`get_name(False)`) | `is_folder` | `type` (GUID) | `guid` (GUID) | Tipo .NET concreto |
 |--------|---------------------------|-------------|---------------|---------------|---------------------|
-| 0 (lido no probe 06) | "Project Settings" | `False` | `8753fe6f-4a22-4320-8103-e553c4fc8e04` | `00000000-0000-0000-0000-000000000144` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
-| 1 | **"Device"** | `False` | `225bfe47-7336-4dbc-9419-4105a7c831fa` | `00000000-0000-0000-0000-000000000208` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
-| 2 | **"Project Information"** | `False` | `085afe48-c5d8-4ea5-ab0d-b35701fa6009` | `00000000-0000-0000-0000-000000000106` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
-| 3 | **"__VisualizationStyle"** | `False` | `8e687a04-7ca7-42d3-be06-fcbda676c5ef` | `00000000-0000-0000-0000-000000000137` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
+| 0 (lido no probe 06) | "Project Settings" | `False` | `8753fe6f-4a22-4320-8103-e553c4fc8e04` | `6470a90f-b7cb-43ac-9ae5-94b2338b4573` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
+| 1 | **"Device"** | `False` | `225bfe47-7336-4dbc-9419-4105a7c831fa` | `ec2ca054-836f-492f-a95f-f296c4785352` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
+| 2 | **"Project Information"** | `False` | `085afe48-c5d8-4ea5-ab0d-b35701fa6009` | `11c0fc3a-9bcf-4dd8-ac38-efb93363e521` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
+| 3 | **"__VisualizationStyle"** | `False` | `8e687a04-7ca7-42d3-be06-fcbda676c5ef` | `5cce1091-f902-4a48-9357-89653e070a0d` | `_3S.CoDeSys.ScriptDriverProjects.ScriptObject` |
 
 Achados:
 - Os 4 objetos de topo de `ExemploPlanta V1.0.project` estão agora TODOS
@@ -758,10 +758,10 @@ confirmados isoladamente nos probes 06/07:
 
 | Índice | Nome | `type_guid` | `object_guid` |
 |--------|------|-------------|----------------|
-| 0 | Project Settings | `8753fe6f-4a22-4320-8103-e553c4fc8e04` | `00000000-0000-0000-0000-000000000144` |
-| 1 | Device | `225bfe47-7336-4dbc-9419-4105a7c831fa` | `00000000-0000-0000-0000-000000000208` |
-| 2 | Project Information | `085afe48-c5d8-4ea5-ab0d-b35701fa6009` | `00000000-0000-0000-0000-000000000106` |
-| 3 | __VisualizationStyle | `8e687a04-7ca7-42d3-be06-fcbda676c5ef` | `00000000-0000-0000-0000-000000000137` |
+| 0 | Project Settings | `8753fe6f-4a22-4320-8103-e553c4fc8e04` | `6470a90f-b7cb-43ac-9ae5-94b2338b4573` |
+| 1 | Device | `225bfe47-7336-4dbc-9419-4105a7c831fa` | `ec2ca054-836f-492f-a95f-f296c4785352` |
+| 2 | Project Information | `085afe48-c5d8-4ea5-ab0d-b35701fa6009` | `11c0fc3a-9bcf-4dd8-ac38-efb93363e521` |
+| 3 | __VisualizationStyle | `8e687a04-7ca7-42d3-be06-fcbda676c5ef` | `5cce1091-f902-4a48-9357-89653e070a0d` |
 
 `root.path` (caminho real do `.project` aberto) e `root.is_root=true`
 também confirmados. Isto valida que o adaptador reproduz fielmente, de
@@ -799,7 +799,7 @@ sem reaproveitar dados de probes anteriores):
   acessar `root_children[1]`);
 - `root_children[1].get_name(False) == "Device"`;
 - `root_children[1].type == 225bfe47-7336-4dbc-9419-4105a7c831fa`;
-- `root_children[1].guid == 00000000-0000-0000-0000-000000000208`.
+- `root_children[1].guid == ec2ca054-836f-492f-a95f-f296c4785352`.
 
 Qualquer divergência nessas 3 identidades registra `device_identity_mismatch`
 e ENCERRA sem chamar `device.get_children(False)`. Só com a identidade
@@ -932,7 +932,7 @@ Execução real de `probes/10_device_first_child_identity.py` contra
 | `name` | **"Plc Logic"** |
 | `is_folder` | `False` |
 | `type` | `40b404f9-e5dc-42c6-907f-c89f4a517386` |
-| `guid` | `00000000-0000-0000-0000-000000000177` |
+| `guid` | `ab0a1c6e-c69e-41f6-bb2a-9601c4989dbb` |
 
 O primeiro filho de `Device` **NÃO é a Application** — é um objeto
 chamado "Plc Logic" (não é pasta). Por decisão já registrada: como o
@@ -1040,11 +1040,11 @@ Project (ExemploPlanta V1.0.project)
 │   │       ├── SystemGVLs (4) / UserGVLs (3)
 │   │       ├── Task Configuration → MainTask/ENIPScannerIOTask/ENIPScannerServiceTask
 │   │       ├── SystemPOUs / UserPOUs / SystemEvents
-│   │       ├── FuncoesExemplo (11 FBs de aplicação: CONT_RETEN, TRAVA_SEGURANCA, ...)
-│   │       ├── TiposDadosExemplo (8: Equipamento, DrivesExemplo, PrgValvulasExemplo, PrgPrgPrgParametrosExemploExemploAuxExemplo, Omron, ...)
-│   │       ├── I/Os (EntradasExemplo/Saidas)
-│   │       ├── PrgHookExemplo → ProgramasExemplo (11 POUs: Elevador_Vertical, Carro_Horizontal, ...)
-│   │       ├── UnidadesAuxExemplo → ProgramasExemplo (7 POUs)
+│   │       ├── Blocos (11 FBs de aplicação: CONT_RETEN, TRAVA_SEGURANCA, ...)
+│   │       ├── Estruturas (8: Motor, Inversores, Valvulas, Parametros_TPV, Omron, ...)
+│   │       ├── I/Os (Entradas/Saidas)
+│   │       ├── RK_HOOK → Programas (11 POUs: Elevador_Vertical, Carro_Horizontal, ...)
+│   │       ├── TPVs → Programas (7 POUs)
 │   │       └── Variáveis Globais (14 GVLs de usuário)
 │   └── Configuration                        (2)
 │       └── NX3005                           (3, 10 filhos: rede/dispositivos)
@@ -1170,7 +1170,7 @@ confirma `text_document_access=true` (intencional), todas as flags de
 escrita/compilação/online `false`, `active_application_used=true`.
 
 **Preservação exata confirmada por amostragem**: inspecionei
-`objects/application_9_9__FB_VALVULA_EXEMPLO/declaration.st` (um Function
+`objects/application_9_9__Valvula_Simples/declaration.st` (um Function
 Block real do projeto) e recalculei o SHA-256 manualmente — bateu
 exatamente com o registrado em `metadata.json`. Indentação mista
 (tabs/espaços) do texto original preservada sem qualquer normalização.

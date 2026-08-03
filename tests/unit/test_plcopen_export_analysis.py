@@ -21,7 +21,7 @@ from mastertool_bridge.automation.plcopen_export_analysis import (
 _PLCOPEN_NS = "http://www.plcopen.org/xml/tc6_0201"
 
 
-def _ladder_xml(pou_name="FB_PISCA_EXEMPLO"):
+def _ladder_xml(pou_name="BLINK_QUE_FUNCIONA"):
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="{_PLCOPEN_NS}">
   <contentHeader name="x" version="2.01"/>
@@ -37,7 +37,7 @@ def _ladder_xml(pou_name="FB_PISCA_EXEMPLO"):
 """
 
 
-def _declaration_only_xml(pou_name="FB_PISCA_EXEMPLO"):
+def _declaration_only_xml(pou_name="BLINK_QUE_FUNCIONA"):
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="{_PLCOPEN_NS}">
   <types><pous>
@@ -52,7 +52,7 @@ def _declaration_only_xml(pou_name="FB_PISCA_EXEMPLO"):
 def test_graphical_body_is_P1(tmp_path):
     (tmp_path / "pou-export.xml").write_text(_ladder_xml(), encoding="utf-8")
 
-    analysis = analyze_export_root(tmp_path, "FB_PISCA_EXEMPLO")
+    analysis = analyze_export_root(tmp_path, "BLINK_QUE_FUNCIONA")
 
     assert analysis.result_case == "P1_graphical_body_present"
     assert analysis.element_counts["graphical_bodies"]["LD"] == 1
@@ -66,7 +66,7 @@ def test_declaration_only_is_P2(tmp_path):
     (tmp_path / "pou-export.xml").write_text(
         _declaration_only_xml(), encoding="utf-8")
 
-    analysis = analyze_export_root(tmp_path, "FB_PISCA_EXEMPLO")
+    analysis = analyze_export_root(tmp_path, "BLINK_QUE_FUNCIONA")
 
     assert analysis.result_case == "P2_declaration_only"
     assert analysis.target_match["found"] is True
@@ -104,7 +104,7 @@ def test_xml_without_extension_is_still_analyzed(tmp_path):
     motivou a guarda de diretorio."""
     (tmp_path / "pou-export").write_text(_ladder_xml(), encoding="utf-8")
 
-    analysis = analyze_export_root(tmp_path, "FB_PISCA_EXEMPLO")
+    analysis = analyze_export_root(tmp_path, "BLINK_QUE_FUNCIONA")
 
     assert analysis.xml_files[0].is_xml is True
     assert analysis.result_case == "P1_graphical_body_present"
@@ -142,7 +142,7 @@ def test_directory_output_with_multiple_files(tmp_path):
 def test_target_not_found_is_reported_without_failing(tmp_path):
     (tmp_path / "e.xml").write_text(_ladder_xml("OUTRA"), encoding="utf-8")
 
-    analysis = analyze_export_root(tmp_path, "FB_PISCA_EXEMPLO")
+    analysis = analyze_export_root(tmp_path, "BLINK_QUE_FUNCIONA")
 
     assert analysis.target_match["searched"] is True
     assert analysis.target_match["found"] is False
@@ -169,7 +169,7 @@ def test_write_analysis_emits_the_three_artifacts(tmp_path):
     out = tmp_path / "out"
     out.mkdir()
 
-    written = write_analysis(analyze_export_root(root, "FB_PISCA_EXEMPLO"), out)
+    written = write_analysis(analyze_export_root(root, "BLINK_QUE_FUNCIONA"), out)
     names = {p.name for p in written}
 
     assert {"xml-files.json", "xml-structure-inventory.json",

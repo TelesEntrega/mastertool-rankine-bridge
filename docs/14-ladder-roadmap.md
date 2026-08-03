@@ -1,8 +1,15 @@
 # MasterTool AI Bridge — Roadmap de Ladder, documentação e engenharia por agentes
 
+> **HISTÓRICO — SUPERADO.** Este documento descreve um estado que já não é o
+> vigente. Ele é preservado sem alteração como registro do que se sabia na
+> época. O estado corrente está em [`CURRENT_STATUS.md`](CURRENT_STATUS.md);
+> o plano corrente, em [`ROADMAP.md`](ROADMAP.md).
+>
+> **O que mudou:** as medições de campo registradas aqui continuam válidas como evidência. O planejamento foi substituído por [`ROADMAP.md`](ROADMAP.md), onde a semântica Ladder é a fase R4.
+
 > Estado: **registrado em 2026-07-24, sobre a baseline `v0.1.0`** (parser ST
 > completo, validado em duas execuções reais independentes — ver
-> `docs/13-static-project-indexer.md` e relatorios de validacao internos (nao publicados)).
+> `docs/13-static-project-indexer.md` e `RELATORIO-VALIDACAO-OPERACIONAL-2026-07-24.md`).
 > Fase corrente: **L0 (Inventário e classificação) — CONCLUÍDA e validada
 > em execução real dentro do MasterTool 3.63 em 2026-07-24 15:56**. O probe
 > `probes/14_inventory_graphic_pous.py` rodou ao vivo e produziu
@@ -410,19 +417,19 @@ Reconstruir a topologia lógica das redes.
 Rede:
 
 ```text
-Start ──┬── Permissivo ─────( Equipamento )
+Start ──┬── Permissivo ─────( Motor )
         │
-Equipamento ──┘
+Motor ──┘
 ```
 
 Árvore lógica:
 
 ```text
-WRITE Equipamento
+WRITE Motor
 └── AND
     ├── OR
     │   ├── READ Start
-    │   └── READ Equipamento
+    │   └── READ Motor
     └── READ Permissivo
 ```
 
@@ -501,15 +508,15 @@ elemento ligado a ele.
 ### Exemplo
 
 ```text
-Equipamento
+Motor
 ```
 
 aparecendo como contato e bobina na mesma rede produz **duas ocorrências**, não
 uma:
 
 ```text
-Equipamento → read     (contato)
-Equipamento → write    (bobina)
+Motor → read     (contato)
+Motor → write    (bobina)
 ```
 
 O símbolo passa a constar nos conjuntos de leitura **e** de escrita. Não se
@@ -560,7 +567,7 @@ para uma POU exclusivamente Ladder:
 
 ```text
 find reads Start
-find writes Equipamento
+find writes Motor
 find calls Temporizador
 find callers FB_Motor
 ```
@@ -1031,7 +1038,7 @@ Não chamar o bloco, alterar hardware ou fazer download.
 
 Criar partes completas de um projeto a partir de requisitos.
 
-### EntradasExemplo
+### Entradas
 
 * descrição do equipamento;
 * lista de I/O;
@@ -1073,7 +1080,7 @@ gerar
 
 Gerar um projeto completo e compilável a partir de uma especificação de engenharia.
 
-### EntradasExemplo
+### Entradas
 
 * memorial descritivo;
 * arquitetura da planta;
@@ -1185,7 +1192,7 @@ Esse é o gate que determinará o desenho técnico do parser Ladder. Implementar
 capturados e validados (`2026-07-23_17-29-54_13_validate_text_exporter` e
 `2026-07-24_14-30-44_13_validate_text_exporter`, ambos de
 `ExemploPlanta V1.0.project`, idênticos entre si — ver
-relatorios de validacao internos (nao publicados)) encontrou 25 candidatos
+`RELATORIO-VALIDACAO-OPERACIONAL-2026-07-24.md`) encontrou 25 candidatos
 usando uma regra manual simplificada. Essa regra foi depois formalizada e
 implementada em duas ferramentas independentes (mesma regra documentada,
 sem código compartilhado — mesmo padrão já usado entre
@@ -1269,8 +1276,8 @@ compartilhado):
   `application` (`is_folder=null`, sem `type_guid`) — comportamento
   correto, não lacuna.
 - Os 29 `unknown` são todos `is_folder=false` com `child_count=0` e
-  correspondem a DUTs/GVLs (`Equipamento`, `DrivesExemplo`, `VarGlobaisExemplo`,
-  `VarEquipamentosExemplo`, `System_Diagnostics`, …): objetos que por natureza não
+  correspondem a DUTs/GVLs (`Motor`, `Inversores`, `VarGlobais`,
+  `VarMotores`, `System_Diagnostics`, …): objetos que por natureza não
   têm corpo de implementação. Classificá-los como `unknown` é o
   comportamento correto da regra (não há referência de comparação com
   implementação textual para esses `type_guid`), não uma falha de

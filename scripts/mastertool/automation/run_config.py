@@ -456,7 +456,7 @@ def _resolve_limits(raw_limits):
     for block_name in raw_limits:
         if block_name not in LIMIT_BLOCK_NAMES:
             raise RunConfigError(
-                "Chave desconhecida em 'limits': '%s'. FuncoesExemplo validos: %s."
+                "Chave desconhecida em 'limits': '%s'. Blocos validos: %s."
                 % (block_name, ", ".join(LIMIT_BLOCK_NAMES)))
 
     resolved = {}

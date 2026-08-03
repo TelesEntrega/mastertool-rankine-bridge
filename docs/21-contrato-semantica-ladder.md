@@ -25,7 +25,7 @@ find writes <símbolo>     find callers <símbolo>
 inclusive quando a evidência vem **exclusivamente** de uma POU Ladder, sem
 nenhuma linha de Structured Text.
 
-## 2. EntradasExemplo
+## 2. Entradas
 
 Duas, e ambas obrigatórias:
 
@@ -482,7 +482,7 @@ na forma atual. Três pontos dele são conscientemente ajustados; o roadmap ser�
 reconciliado no slice de implementação.
 
 **1. `read_write` é por ocorrência, não por símbolo.** O roadmap sugere que
-`Equipamento` aparecendo como contato e bobina na mesma rede seja `read_write`. Isso
+`Motor` aparecendo como contato e bobina na mesma rede seja `read_write`. Isso
 colidiria com o vocabulário ST, onde `read_write` qualifica **uma** ocorrência
 que é simultaneamente leitura e escrita (o caso `VAR_IN_OUT`). Aqui: o contato
 gera uma ocorrência `read`, a bobina uma `write`, e o símbolo aparece nos dois

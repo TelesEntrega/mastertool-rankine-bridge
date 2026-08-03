@@ -18,7 +18,7 @@ com crase, aspas, `$env:` em vez de VAR=valor).
   .\run_supervised_snapshot.ps1 -Execute     # execucao real, UI visivel
   .\run_supervised_snapshot.ps1 -ProbeLadderSurface -Execute
                                               # idem, + sonda Fase L1 sobre
-                                              # application/9/4 FB_PISCA_EXEMPLO
+                                              # application/9/4 BLINK_QUE_FUNCIONA
 #>
 [CmdletBinding()]
 param(
@@ -29,7 +29,7 @@ param(
 
     # Sem espacos de proposito: nao e exigencia aqui (o orquestrador nao usa
     # --scriptargs), mas mantem o layout de execucao previsivel.
-    [string]$RunsRoot = 'C:\mastertool-bridge-runs',
+    [string]$RunsRoot = 'C:\mastertool-rankine-bridge-runs',
 
     # Identidade da Application do ExemploPlanta V1.0. Trocar ao rodar contra
     # outro projeto - NUNCA hardcoded do lado Python, por isso vem por
@@ -42,14 +42,14 @@ param(
     [switch]$NoIndex,
 
     # Fase L1 (Ladder) - sondagem de superfície sobre UM objeto POU. Os 4
-    # valores abaixo sao a identidade de application/9/4 FB_PISCA_EXEMPLO
+    # valores abaixo sao a identidade de application/9/4 BLINK_QUE_FUNCIONA
     # no ExemploPlanta V1.0 (menor candidato partially_supported de L0, achado
     # em docs/14-ladder-roadmap.md). Trocar ao sondar outro objeto/projeto -
     # NUNCA hardcoded do lado Python, por isso vem por argumento aqui tambem.
     [switch]$ProbeLadderSurface,
     [string]$LadderTargetNodeId = 'application/9/4',
-    [string]$LadderExpectedName = 'FB_PISCA_EXEMPLO',
-    [string]$LadderExpectedGuid = '00000000-0000-0000-0000-000000000002',
+    [string]$LadderExpectedName = 'BLINK_QUE_FUNCIONA',
+    [string]$LadderExpectedGuid = 'beca53e2-8466-404a-baf5-9fba1adc0fac',
     [string]$LadderExpectedTypeGuid = '6f9dac99-8de1-4efc-8465-68ac443b7d08',
 
     # Fase L1, probe 17 - sondagem da superficie DINAMICA. Defaults VAZIOS de

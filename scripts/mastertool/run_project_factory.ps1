@@ -472,6 +472,31 @@ if ($planData.template.sha256 -and $planData.template.sha256 -ne $templateSha) {
           "e $templateSha. Executar assim geraria projeto sobre outra base.")
 }
 
+# A QUALIFICACAO TEM DE SER DESTE ARQUIVO.
+#
+# ACHADO de 2026-08-02, enquanto se montava o lote de reversao: o bloco de
+# elegibilidade la em cima conferia `authoring_eligible` e mais nada. O
+# artefato nao dizia de qual projeto falava, entao a qualificacao de um arquivo
+# autorizava escrita em outro -- e nada detectaria. Num lote de reversao, onde
+# cada alvo e uma saida diferente, o atalho seria reusar UMA qualificacao para
+# as dez, e o lote inteiro pareceria conferido.
+#
+# Campo ausente RECUSA, pelo mesmo motivo que `authoring_eligible` ausente
+# recusa: nao saber de que arquivo o artefato fala nao e o mesmo que ele falar
+# deste. Artefato antigo precisa ser remedido -- e remedir custa uma sessao
+# read-only de 20 segundos.
+if ($null -eq $qualification.project -or
+    [string]::IsNullOrWhiteSpace($qualification.project.sha256)) {
+    Fail ("Artefato de qualificacao sem `project.sha256`: ele nao diz de qual " +
+          "arquivo fala. Regravar rodando o probe 35 sobre este template.")
+}
+if ($qualification.project.sha256.ToLower() -ne $templateSha) {
+    Fail ("A qualificacao e do projeto $($qualification.project.sha256) e o " +
+          "template e $templateSha. Uma qualificacao vale para o arquivo onde " +
+          "foi medida, e para mais nenhum.")
+}
+Write-Host "[OK] Qualificacao: medida SOBRE este arquivo"
+
 if (Test-Path -LiteralPath $outputProject) {
     Fail "A saida ja existe: $outputProject. Este host nunca sobrescreve."
 }

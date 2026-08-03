@@ -96,7 +96,13 @@ _APPLICATION_NAMESPACE_FAMILIES = (
 
 _ALL_FAMILIES = _APPLICATION_NAMESPACE_FAMILIES + ("tasks", "libraries")
 
-_TOP_LEVEL_KNOWN_KEYS = frozenset({"schema_version", "template"} | set(_ALL_FAMILIES))
+# `modifications` NÃO é uma família de objeto: é a lista de alterações sobre
+# objeto PREEXISTENTE (fase R2). Ela não cria nada, não entra em
+# `creation_order` e não conta em `expected_diff` — a árvore não muda quando só
+# o texto muda (medido em W1.3A, docs/33). Quem valida a forma dela é o
+# planner, que é onde o hash anterior medido tem significado.
+_TOP_LEVEL_KNOWN_KEYS = frozenset(
+    {"schema_version", "template", "modifications"} | set(_ALL_FAMILIES))
 
 _REQUIRED_BY_FAMILY = {
     "duts": {"name", "kind", "declaration"},
@@ -696,7 +702,12 @@ def validate_project_spec(spec: Any) -> ValidationResult:
         for called in calls:
             if isinstance(called, str):
                 program_call_pairs.append((task_name, called))
-    for task_name, program_name in sorted(program_call_pairs):
+    # Ordem DECLARADA, pelo mesmo motivo que `planner._check_program_calls`:
+    # a ordem das chamadas dentro de uma task é a ordem de execução no ciclo
+    # IEC. `creation_order` é o que a verificação compara contra o projeto
+    # gerado; alfabetizá-lo aqui faria a verificação aprovar uma ordem que a
+    # spec não pediu, e faria o validador discordar do planner em silêncio.
+    for task_name, program_name in program_call_pairs:
         creation_order.append(f"program_call:{task_name}->{program_name}")
 
     expected_diff: dict[str, int] = {}

@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastertool-bridge/template_profile.schema.json",
+  "title": "template_profile — perfil congelado de UM arquivo .project, com proveniência por campo",
+  "description": "Formaliza a baseline estrutural de um template como PERFIL VERSIONADO (fase R0b), substituindo a identidade posicional. Difere de `template_registry.schema.json` em dois pontos que são a razão de existir: (1) a identidade do container é um SELETOR SEMÂNTICO (nome + type_guid + ancestralidade + cardinalidade esperada), não um `application_node_path` de índices; (2) todo número medido carrega PROVENIÊNCIA — a run e o documento que o mediram — porque um perfil sem proveniência é indistinguível de um perfil inventado, e foi exatamente essa a lacuna que `docs/36` deixou aberta ao ser superado por medições posteriores sem documento numerado. Elegibilidade e maturidade NUNCA são declaradas: são DERIVADAS pelo carregador a partir das evidências. Um perfil que se autodeclare elegível com bloqueio pendente é o modo de falha que a derivação existe para impedir.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "product",
+    "product_version",
+    "project",
+    "structure",
+    "application_selector",
+    "compiler_version",
+    "libraries",
+    "device_inventory",
+    "library_lock",
+    "capability_qualification",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identidade do PERFIL, não do arquivo. Dois perfis do 'mesmo' template com sha256 diferentes são perfis diferentes e precisam de `profile_id` diferentes — o arquivo é identificado por `project.sha256`, e é ele que manda."
+    },
+    "product": { "type": "string", "minLength": 1 },
+    "product_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Versão EXATA do produto contra a qual o perfil foi medido. Uma medição no MasterTool X 4.1.0.11 não vale para 4.2 sem remedição — ver docs/COMPATIBILITY_MATRIX.md."
+    },
+    "project": { "$ref": "#/$defs/project_identity" },
+    "structure": { "$ref": "#/$defs/structure" },
+    "application_selector": { "$ref": "#/$defs/semantic_selector" },
+    "compiler_version": { "$ref": "#/$defs/evidence" },
+    "libraries": { "$ref": "#/$defs/evidence" },
+    "device_inventory": { "$ref": "#/$defs/evidence" },
+    "library_lock": { "$ref": "#/$defs/evidence" },
+    "capability_qualification": { "$ref": "#/$defs/capability_qualification" },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/provenance_entry" },
+      "description": "De onde cada número veio. Toda evidência com status 'measured' precisa de uma entrada aqui cobrindo o seu campo — sem isso o número é afirmação sem origem."
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "OPCIONAL. Ressalvas que viajam com os números (ex.: escopo real de um hash). Nunca substitui `reason` de uma evidência não resolvida."
+    }
+  },
+  "$defs": {
+    "project_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "sha256", "size_bytes", "classification"],
+      "properties": {
+        "file_name": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "classification": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Como o arquivo é classificado no CHANGELOG. Chamar de 'mínimo' um projeto com cartões de I/O descreveria errado a superfície do diff — o erro que a classificação existe para evitar."
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_count", "node_count", "tree_sha256", "tree_sha256_scope"],
+      "properties": {
+        "root_count": { "type": "integer", "minimum": 1 },
+        "node_count": { "type": "integer", "minimum": 1 },
+        "tree_sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "tree_sha256_scope": {
+          "type": "string",
+          "minLength": 1,
+          "description": "OBRIGATÓRIO e não é decoração: o mesmo nome de campo já designou escopos diferentes em artefatos diferentes desta base (um nível de filhos diretos no registry de W1.3B; árvore inteira sem distinguir objeto transiente em docs/36). Um consumidor que presuma o escopo errado compara coisas incomparáveis."
+        },
+        "unclassified_node_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "OPCIONAL. Nós contados e explicitamente classificados como não catalogados. Zero declarado é diferente de campo ausente: um diz 'medi e não há', o outro diz 'não medi'."
+        }
+      }
+    },
+    "semantic_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "description": "Identidade por atributo, não por posição. Ver `mastertool_bridge/templates/selector.py`: a unicidade vem da cardinalidade conferida sobre a árvore INTEIRA, não da rigidez de um caminho.",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type_guid": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "ancestor_names": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "expected_cardinality": { "type": "integer", "minimum": 1 },
+        "max_depth": { "type": "integer", "minimum": 1 },
+        "max_nodes": { "type": "integer", "minimum": 1 },
+        "max_children": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "source"],
+      "description": "Mesma forma de `template_registry.schema.json`: ou foi MEDIDO, ou está declaradamente NÃO RESOLVIDO. `value` nunca é string vazia para dizer 'não sei', e `null` nunca significa 'não se aplica'.",
+      "properties": {
+        "status": { "type": "string", "enum": ["measured", "unresolved"] },
+        "value": {
+          "description": "Qualquer forma (string, número, objeto, lista) quando 'measured'. Sempre `null` quando 'unresolved'."
+        },
+        "source": { "type": "string", "minLength": 1 },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Obrigatório (não vazio) quando 'unresolved': por que não foi possível medir. Ausente ou `null` quando 'measured'."
+        }
+      },
+      "if": { "properties": { "status": { "const": "measured" } } },
+      "then": { "properties": { "reason": { "type": "null" } } },
+      "else": {
+        "properties": { "value": { "type": "null" }, "reason": { "type": "string", "minLength": 1 } },
+        "required": ["reason"]
+      }
+    },
+    "capability_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "runs", "reason"],
+      "description": "Estado da qualificação de capacidades CONTRA ESTE PERFIL (fase R1). Enquanto 'not_measured', o carregador DERIVA `qualified_capabilities = []` e recusa qualquer lista declarada não vazia: um perfil não promove maturidade, medição promove.",
+      "properties": {
+        "status": { "type": "string", "enum": ["not_measured", "measured"] },
+        "runs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Identificadores das execuções independentes que sustentam a promoção. Vazio obrigatoriamente quando 'not_measured'."
+        },
+        "reason": { "type": ["string", "null"] },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualified_capability" },
+          "description": "OPCIONAL. Só pode existir, e só pode ser não vazia, quando `status = measured`."
+        }
+      }
+    },
+    "qualified_capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "maturity", "runs", "document"],
+      "properties": {
+        "operation": { "type": "string", "minLength": 1 },
+        "maturity": {
+          "type": "string",
+          "enum": ["discovered", "field_proven", "repeatable", "template_qualified", "version_qualified", "production_qualified"]
+        },
+        "runs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "document": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "run", "document"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Caminho pontilhado do campo que esta entrada sustenta (ex.: 'structure.node_count', 'compiler_version')."
+        },
+        "run": { "type": "string", "minLength": 1 },
+        "document": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

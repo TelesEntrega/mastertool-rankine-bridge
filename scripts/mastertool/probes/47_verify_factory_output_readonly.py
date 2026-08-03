@@ -358,16 +358,42 @@ def expected_texts(plano):
     A fonte e o PLANO, e nao a spec: o plano e o que passou pela validacao e
     tem hash proprio. Conferir contra a spec de novo mediria a spec contra ela
     mesma.
+
+    DUAS FORMAS DE CHAVE, e a segunda chegou com a fase R2:
+
+        familia:nome:campo            texto de objeto CRIADO pelo plano
+        modify:familia:nome:campo     texto de objeto PREEXISTENTE alterado
+
+    Alteracao e criacao terminam no mesmo lugar -- um texto que precisa bater
+    com um hash -- e por isso as duas viram a mesma tupla aqui. O prefixo diz
+    de onde o objeto veio, e isso ja foi conferido antes: o `expected_before`
+    do passo, no probe 46.
+
+    Devolve `(esperado, ilegiveis)`. Chave que este parser NAO entende sai na
+    segunda lista, nunca descartada em silencio. O `continue` mudo que estava
+    aqui teria deixado passar um plano com uma criacao e uma alteracao
+    conferindo so a criacao, e o veredito sairia VERDE com metade medida --
+    o mesmo modo de falha que `unknown_family` ja bloqueia logo abaixo.
     """
     esperado = {}
+    ilegiveis = []
     for chave, valor in (plano.get("text_hashes") or {}).items():
         partes = chave.split(":")
-        if len(partes) != 3:
+        if partes[0] == "modify":
+            # `modify:a:b` tem tres partes e viraria familia "modify" -- uma
+            # familia que nao existe. O prefixo obriga as quatro.
+            if len(partes) != 4:
+                ilegiveis.append(chave)
+                continue
+            partes = partes[1:]
+        if len(partes) != 3 or not all(partes):
+            ilegiveis.append(chave)
             continue
-        if not isinstance(valor, dict):
+        if not isinstance(valor, dict) or not valor.get("raw_sha256"):
+            ilegiveis.append(chave)
             continue
         esperado[(partes[0], partes[1], partes[2])] = valor.get("raw_sha256")
-    return esperado
+    return esperado, ilegiveis
 
 
 def classify(objetos):
@@ -470,7 +496,16 @@ def run_verify(script_globals, argv, project_access, file_io, probe_cli,
                 % (observado, declarado))
             return finish(STATUS_PRECONDITION_FAILED)
 
-    esperado = expected_texts(plano)
+    esperado, chaves_ilegiveis = expected_texts(plano)
+    if chaves_ilegiveis:
+        # Bloqueia ANTES de olhar o vazio: "nao sei ler estas chaves" e um
+        # diagnostico diferente de "o plano nao pediu texto nenhum", e trocar
+        # um pelo outro manda o operador procurar no lugar errado.
+        problems.append(
+            "chave(s) de `text_hashes` que este verificador nao sabe ler: %s. "
+            "Chave ilegivel nao e chave ausente" % ", ".join(
+                sorted(chaves_ilegiveis)))
+        return finish(STATUS_PRECONDITION_FAILED)
     if not esperado:
         problems.append("plano sem `text_hashes`: nao ha o que verificar")
         return finish(STATUS_PRECONDITION_FAILED)

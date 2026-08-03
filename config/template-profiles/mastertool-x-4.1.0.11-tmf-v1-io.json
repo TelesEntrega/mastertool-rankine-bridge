@@ -1,0 +1,389 @@
+{
+  "schema_version": 1,
+  "profile_id": "mastertool-x-4.1.0.11-tmf-v1-io-v1",
+  "product": "MasterTool X",
+  "product_version": "4.1.0.11",
+  "project": {
+    "file_name": "TemplateExemplo v1.project",
+    "sha256": "596625796e4efd54d3cc2d6286e858b683f0f58de66ab9a36eed532dd1d815f5",
+    "size_bytes": 503040,
+    "classification": "projeto sintético com controlador NX3008 e cartões de I/O configurados"
+  },
+  "structure": {
+    "root_count": 3,
+    "node_count": 42,
+    "tree_sha256": "162d4fd747532bc0d9a6f22dc12eeaabcf59397ec4210e6787f68f1edf89f647",
+    "tree_sha256_scope": "Árvore inteira varrida por probes/21, SEM distinguir objeto transiente — o scanner reaproveitado não lê `is_transient_object` por nó. NÃO é o mesmo escopo do `persistent_tree_sha256` de `template_registry`, que cobre um nível de filhos diretos: os dois números não são comparáveis entre si.",
+    "unclassified_node_count": 13
+  },
+  "application_selector": {
+    "name": "Application",
+    "type_guid": "639b491f-5557-464c-af91-1471bac9f549",
+    "expected_cardinality": 1
+  },
+  "compiler_version": {
+    "status": "measured",
+    "value": "3.5.18.50",
+    "source": "run-012, leitura read-only de project settings (probes/36)"
+  },
+  "libraries": {
+    "status": "measured",
+    "value": {
+      "count": 17,
+      "confirmation_routes": 2
+    },
+    "source": "run-016, inventário conferido por duas rotas independentes (probes/41)"
+  },
+  "device_inventory": {
+    "status": "unresolved",
+    "value": null,
+    "source": "R0b, varredura documental do que existe medido",
+    "reason": "Nenhuma run mediu o inventário de dispositivos DESTE arquivo. `tools/build_device_inventory.py` existe e a base tem cartões de I/O configurados, mas não há artefato medido citável amarrado a este sha256 — e o hash de um inventário que ninguém computou seria invenção."
+  },
+  "library_lock": {
+    "status": "unresolved",
+    "value": null,
+    "source": "docs/CURRENT_STATUS.md §4, dívida nomeada",
+    "reason": "As 17 bibliotecas são placeholder: nenhum build fixa para que versão elas resolvem. Sem versão resolvida não existe hash de trava a computar, e um hash sobre nomes sem versão daria a impressão de travar o que não está travado."
+  },
+  "capability_qualification": {
+    "status": "measured",
+    "runs": [
+      "R1-N10/run-001",
+      "R1-N10/run-002",
+      "R1-N10/run-003",
+      "R1-N10/run-004",
+      "R1-N10/run-005",
+      "R1-N10/run-006",
+      "R1-N10/run-007",
+      "R1-N10/run-008",
+      "R1-N10/run-009",
+      "R1-N10/run-010",
+      "R1-TASK-N10/run-001",
+      "R1-TASK-N10/run-002",
+      "R1-TASK-N10/run-003",
+      "R1-TASK-N10/run-004",
+      "R1-TASK-N10/run-005",
+      "R1-TASK-N10/run-006",
+      "R1-TASK-N10/run-007",
+      "R1-TASK-N10/run-008",
+      "R1-TASK-N10/run-009",
+      "R1-TASK-N10/run-010",
+      "W10-N10/run-001",
+      "W10-N10/run-002",
+      "W10-N10/run-003",
+      "W10-N10/run-004",
+      "W10-N10/run-005",
+      "W10-N10/run-006",
+      "W10-N10/run-007",
+      "W10-N10/run-008",
+      "W10-N10/run-009",
+      "W10-N10/run-010"
+    ],
+    "reason": null,
+    "capabilities": [
+      {
+        "operation": "create_gvl",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "create_program",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "create_function",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "create_function_block",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "create_dut",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "create_program_call",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "replace",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010",
+          "W10-N10/run-001",
+          "W10-N10/run-002",
+          "W10-N10/run-003",
+          "W10-N10/run-004",
+          "W10-N10/run-005",
+          "W10-N10/run-006",
+          "W10-N10/run-007",
+          "W10-N10/run-008",
+          "W10-N10/run-009",
+          "W10-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md; docs/53-qualificacao-w10-n10.md (alvo PREEXISTENTE)"
+      },
+      {
+        "operation": "save_as",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "reopen",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "build",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "verify",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-N10/run-001",
+          "R1-N10/run-002",
+          "R1-N10/run-003",
+          "R1-N10/run-004",
+          "R1-N10/run-005",
+          "R1-N10/run-006",
+          "R1-N10/run-007",
+          "R1-N10/run-008",
+          "R1-N10/run-009",
+          "R1-N10/run-010"
+        ],
+        "document": "docs/50-qualificacao-r1-n10.md"
+      },
+      {
+        "operation": "create_task",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-TASK-N10/run-001",
+          "R1-TASK-N10/run-002",
+          "R1-TASK-N10/run-003",
+          "R1-TASK-N10/run-004",
+          "R1-TASK-N10/run-005",
+          "R1-TASK-N10/run-006",
+          "R1-TASK-N10/run-007",
+          "R1-TASK-N10/run-008",
+          "R1-TASK-N10/run-009",
+          "R1-TASK-N10/run-010"
+        ],
+        "document": "docs/51-qualificacao-r1-task-n10.md"
+      },
+      {
+        "operation": "bind_program_to_task",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-TASK-N10/run-001",
+          "R1-TASK-N10/run-002",
+          "R1-TASK-N10/run-003",
+          "R1-TASK-N10/run-004",
+          "R1-TASK-N10/run-005",
+          "R1-TASK-N10/run-006",
+          "R1-TASK-N10/run-007",
+          "R1-TASK-N10/run-008",
+          "R1-TASK-N10/run-009",
+          "R1-TASK-N10/run-010"
+        ],
+        "document": "docs/51-qualificacao-r1-task-n10.md"
+      },
+      {
+        "operation": "configure_task",
+        "maturity": "repeatable",
+        "runs": [
+          "R1-TASK-N10/run-001",
+          "R1-TASK-N10/run-002",
+          "R1-TASK-N10/run-003",
+          "R1-TASK-N10/run-004",
+          "R1-TASK-N10/run-005",
+          "R1-TASK-N10/run-006",
+          "R1-TASK-N10/run-007",
+          "R1-TASK-N10/run-008",
+          "R1-TASK-N10/run-009",
+          "R1-TASK-N10/run-010"
+        ],
+        "document": "docs/51-qualificacao-r1-task-n10.md"
+      }
+    ]
+  },
+  "provenance": [
+    {
+      "field": "project.sha256",
+      "run": "run-010",
+      "document": "docs/36-qualificacao-template-tmf-v1.md"
+    },
+    {
+      "field": "structure",
+      "run": "run-011",
+      "document": "docs/36-qualificacao-template-tmf-v1.md"
+    },
+    {
+      "field": "application_selector",
+      "run": "run-011",
+      "document": "docs/36-qualificacao-template-tmf-v1.md"
+    },
+    {
+      "field": "compiler_version",
+      "run": "run-012",
+      "document": "docs/18-estado-e-proximo-passo.md",
+      "commit": "59e8637"
+    },
+    {
+      "field": "libraries",
+      "run": "run-016",
+      "document": "docs/18-estado-e-proximo-passo.md",
+      "commit": "a3b17f9"
+    },
+    {
+      "field": "authoring_eligibility",
+      "run": "run-018",
+      "document": "docs/18-estado-e-proximo-passo.md",
+      "commit": "a9dd252"
+    },
+    {
+      "field": "capability_qualification",
+      "run": "R1-N10",
+      "document": "docs/50-qualificacao-r1-n10.md",
+      "commit": "9209488"
+    },
+    {
+      "field": "capability_qualification.task_operations",
+      "run": "R1-TASK-N10",
+      "document": "docs/51-qualificacao-r1-task-n10.md"
+    }
+  ],
+  "notes": [
+    "ESTE PERFIL FOI MONTADO OFFLINE, a partir de evidência já registrada — não de uma varredura nova. Cada número aponta para a run e o documento que o mediram. Confirmar o perfil contra o produto (recomputar sha256 do arquivo, revarrer a árvore e reconferir a cardinalidade do seletor) é trabalho de sessão de campo, e é o que permitiria promover `capability_qualification` de `not_measured`.",
+    "LACUNA DOCUMENTAL QUE ESTE PERFIL FECHA: `docs/36` concluiu que o template estava medido e NÃO elegível, por `compiler_version_unresolved` e `libraries_unresolved`. Os dois foram resolvidos depois, por medição (run-012, run-016, ligadas ao probe de qualificação em `a9dd252`, elegível desde a run-018) — mas nenhum documento numerado de execução registra essa resolução, e quem lesse apenas `docs/36` concluiria que o template segue inelegível. As entradas de proveniência acima são o registro que faltava.",
+    "`docs/36` continua sendo evidência datada e não deve ser editado para concordar com este perfil. Quando os dois divergem, o que vale é a proveniência: `docs/36` descreve o que era verdade na run-011, este perfil descreve o que é verdade depois da run-018.",
+    "O seletor não fixa ancestralidade de propósito. Amarrar 'Device' e 'Plc Logic' trocaria uma suposição posicional por uma de nomenclatura, medida em UM template; a unicidade vem da cardinalidade conferida sobre a árvore inteira. Se um projeto tiver dois `Application`, a seleção recusa com `selector_ambiguous` — e é aí que declarar ancestralidade passa a ser a resposta certa.",
+    "QUALIFICACAO R1 N=10, 2026-08-02: dez execucoes independentes da mesma spec (sha 2e382c76...db1481) sobre este template, dez builds verificados sem aviso do fabricante, dez verificacoes aprovadas, 10/10 equivalentes e independencia limpa nos 45 pares. Promove ONZE operacoes para `repeatable`. As tres que faltam -- create_task, bind_program_to_task e configure_task -- NAO foram exercidas por este lote: a spec reusa a MainTask. Promove-las aqui seria creditar o que ninguem mediu.",
+    "QUALIFICACAO R1 DE TASK, N=10, 2026-08-02: segunda spec canonica (w9-task-timing-v1.json, sha c369c2f2...3952f4, copia byte a byte da spec da run-037) cria `TaskDiagnostico` Cyclic t#500ms prioridade 25 com chamada propria. Dez execucoes, dez builds verificados com ZERO erro e ZERO aviso, 10/10 equivalentes, independencia limpa nos 45 pares. Promove as tres operacoes que faltavam: create_task, bind_program_to_task e configure_task. Com isso, as CATORZE do EXECUTOR_CONTRACT estao `repeatable`."
+  ]
+}

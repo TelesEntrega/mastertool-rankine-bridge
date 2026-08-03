@@ -213,9 +213,9 @@ def test_target_simple_identifier() -> None:
 
 
 def test_target_dotted_name() -> None:
-    r = parse_query_intent("find reads VarEquipamentosExemplo.MT01.RetornoDisjuntor")
+    r = parse_query_intent("find reads VarMotores.MT01.RetornoDisjuntor")
     assert r.status == "matched"
-    assert r.target == "VarEquipamentosExemplo.MT01.RetornoDisjuntor"
+    assert r.target == "VarMotores.MT01.RetornoDisjuntor"
 
 
 def test_target_indexed_name() -> None:
@@ -250,8 +250,8 @@ def test_target_curly_single_quotes_stripped() -> None:
 
 
 def test_target_quotes_preserve_internal_content() -> None:
-    r = parse_query_intent('find symbol "VarEquipamentosExemplo.MT01.RetornoDisjuntor"')
-    assert r.target == "VarEquipamentosExemplo.MT01.RetornoDisjuntor"
+    r = parse_query_intent('find symbol "VarMotores.MT01.RetornoDisjuntor"')
+    assert r.target == "VarMotores.MT01.RetornoDisjuntor"
 
 
 # ---------------------------------------------------------------------------

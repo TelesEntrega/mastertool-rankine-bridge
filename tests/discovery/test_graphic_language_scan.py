@@ -95,7 +95,7 @@ def test_unsupported_object(tmp_path: Path) -> None:
         tmp_path / "export",
         [
             _obj("application", None, None, False, False, parent_node_id=None),
-            _obj("application/0", "TiposDadosExemplo", FOLDER_TYPE_GUID, False, False),
+            _obj("application/0", "Estruturas", FOLDER_TYPE_GUID, False, False),
         ],
     )
     result = scan_graphic_language_candidates(export_dir, tmp_path / "out")
@@ -203,7 +203,7 @@ def test_determinism_same_input_twice_byte_identical(tmp_path: Path) -> None:
         _obj("application", None, None, False, False, parent_node_id=None),
         _obj("application/0", "MainPrg", TEXTUAL_TYPE_GUID, True, True),
         _obj("application/1", "StartPrg", TEXTUAL_TYPE_GUID, True, False),
-        _obj("application/2", "TiposDadosExemplo", FOLDER_TYPE_GUID, False, False),
+        _obj("application/2", "Estruturas", FOLDER_TYPE_GUID, False, False),
         _obj("application/3", "FB_Isolado", UNIQUE_TYPE_GUID, True, False),
     ]
     export_dir = _write_export(tmp_path / "export", flat_objects)
@@ -228,7 +228,7 @@ def test_ladder_and_unsupported_are_exact_consistent_subsets(tmp_path: Path) -> 
         _obj("application", None, None, False, False, parent_node_id=None),
         _obj("application/0", "MainPrg", TEXTUAL_TYPE_GUID, True, True),
         _obj("application/1", "StartPrg", TEXTUAL_TYPE_GUID, True, False),
-        _obj("application/2", "TiposDadosExemplo", FOLDER_TYPE_GUID, False, False),
+        _obj("application/2", "Estruturas", FOLDER_TYPE_GUID, False, False),
         _obj("application/3", "FB_Isolado", UNIQUE_TYPE_GUID, True, False),
         _obj("application/4", "Outra_Pasta", FOLDER_TYPE_GUID, False, False),
     ]
@@ -270,7 +270,7 @@ def test_path_derivation_from_hierarchy(tmp_path: Path) -> None:
             _obj("application", None, None, False, False, parent_node_id=None),
             _obj(
                 "application/0",
-                "TiposDadosExemplo",
+                "Estruturas",
                 FOLDER_TYPE_GUID,
                 False,
                 False,
@@ -278,7 +278,7 @@ def test_path_derivation_from_hierarchy(tmp_path: Path) -> None:
             ),
             _obj(
                 "application/0/0",
-                "Equipamento",
+                "Motor",
                 UNIQUE_TYPE_GUID,
                 True,
                 False,
@@ -289,7 +289,7 @@ def test_path_derivation_from_hierarchy(tmp_path: Path) -> None:
     result = scan_graphic_language_candidates(export_dir, tmp_path / "out")
 
     motor = next(o for o in result["inventory"] if o["node_id"] == "application/0/0")
-    assert motor["path"] == "application/TiposDadosExemplo/Equipamento"
+    assert motor["path"] == "application/Estruturas/Motor"
 
 
 def test_no_new_dependency_and_never_hardcodes_real_project_guid() -> None:

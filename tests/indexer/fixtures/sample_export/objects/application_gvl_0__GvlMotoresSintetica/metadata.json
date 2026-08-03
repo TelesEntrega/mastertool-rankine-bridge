@@ -1,10 +1,10 @@
 {
   "declaration": {
     "available": true,
-    "byte_length": 210,
-    "character_length": 210,
+    "byte_length": 192,
+    "character_length": 192,
     "file": "declaration.st",
-    "sha256": "8c767df16c9ceb1b58ff161bbce3e17125b02aacdf4a8a159d6bcbae434387ff",
+    "sha256": "dee4abf2ea45af600d1e001722e51c2977e17477609539565f7efb4798fa30f0",
     "state": "saved"
   },
   "depth": 1,

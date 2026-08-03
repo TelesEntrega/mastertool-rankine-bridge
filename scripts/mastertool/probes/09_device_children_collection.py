@@ -23,7 +23,7 @@ O indice 1 SO pode ser acessado apos revalidar (nesta MESMA execucao, sem
 reaproveitar dados de probes anteriores): `root_children.Count == 4`,
 `root_children[1].get_name(False) == "Device"`, `root_children[1].type ==
 225bfe47-7336-4dbc-9419-4105a7c831fa` e `root_children[1].guid ==
-00000000-0000-0000-0000-000000000208`. Qualquer divergencia registra
+ec2ca054-836f-492f-a95f-f296c4785352`. Qualquer divergencia registra
 `device_identity_mismatch` e ENCERRA sem chamar `device.get_children(False)`.
 
 Escopo autorizado SOMENTE no no `Device`, apos identidade confirmada:
@@ -67,7 +67,7 @@ EXPECTED_ROOT_COUNT = 4
 DEVICE_INDEX = 1
 EXPECTED_DEVICE_NAME = "Device"
 EXPECTED_DEVICE_TYPE_GUID = "225bfe47-7336-4dbc-9419-4105a7c831fa"
-EXPECTED_DEVICE_OBJECT_GUID = "00000000-0000-0000-0000-000000000208"
+EXPECTED_DEVICE_OBJECT_GUID = "ec2ca054-836f-492f-a95f-f296c4785352"
 MAX_DEVICE_CHILDREN = 64
 
 # Interfaces .NET cujo nome (curto, via Type.Name) confirma que a colecao

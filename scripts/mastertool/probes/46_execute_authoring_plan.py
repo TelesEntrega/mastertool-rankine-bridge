@@ -100,7 +100,14 @@ SCHEMA_VERSION = "1.0"
 # plano trazer um nome novo.
 ACCEPTED_PHASES = ("W9_PROVE_TASK_TIMING", "W8_PROVE_TASK_WITH_POU",
                    "W4_EXECUTE_PLAN", "W5_PROVE_IEC_PACKAGE",
-                   "W6_PROVE_DUT_AND_TASK", "W7_FACTORY_FULL")
+                   "W6_PROVE_DUT_AND_TASK", "W7_FACTORY_FULL",
+                   # W10 -- alteracao de objeto PREEXISTENTE (fase R2). Entra
+                   # aqui porque o executor mantem lista PROPRIA, separada do
+                   # mapa de allowlists: estar autorizado pela fase nao basta,
+                   # o executor tambem precisa ter sido ensinado. A dupla
+                   # porta recusou a primeira tentativa de rodar W10, e foi ela
+                   # que tornou esta linha uma decisao em vez de um descuido.
+                   "W10_EDIT_EXISTING", "W10_REVERT")
 EXPECTED_PLAN_KIND = "authoring_plan"
 EXPECTED_PLAN_SCHEMA_VERSION = 1
 
@@ -276,9 +283,43 @@ DUT_KIND_TO_MEMBER = {
 POU_TYPE_GUID = "6f9dac99-8de1-4efc-8465-68ac443b7d08"
 # GUID de tipo da GVL, medido na arvore do TemplateExemplo v1 (probe 37, run-025).
 GVL_TYPE_GUID = "ffbfa93a-b94d-45fc-a329-229860183b1d"
+EXPECTED_BEFORE_MEASURED = "measured"
+
 EXPECTED_CONTAINER_NAME = "Application"
 EXPECTED_CONTAINER_TYPE_GUID = "639b491f-5557-464c-af91-1471bac9f549"
-CONTAINER_NODE_PATH = "root/1/0/0"
+
+# --- selecao SEMANTICA do container (fase R0b) -------------------------------
+#
+# Ate aqui este probe descia `CONTAINER_NODE_PATH = "root/1/0/0"` por INDICE e
+# so depois conferia nome e tipo. O caminho por indice era a rota medida do
+# template ANTIGO: um cartao de I/O acrescentado sob o `Device` desloca os
+# indices, e o mesmo "root/1/0/0" passa a apontar para o cartao. Na base nova
+# ele continuou valendo -- por sorte, o que nao se distingue de valer por
+# construcao. A R0b troca a identidade posicional pela semantica.
+#
+# O seletor e nome + type_guid, sem ancestralidade. Fixar aqui os nomes das
+# camadas ("Device", "Plc Logic") seria trocar uma suposicao posicional por
+# uma suposicao de nomenclatura, medida em UM template. A unicidade nao vem da
+# rigidez do caminho: vem da cardinalidade conferida sobre a arvore INTEIRA --
+# um segundo `Application` faz a execucao recusar com nome proprio, em vez de
+# escrever no primeiro que aparecer.
+#
+# Vocabulario FECHADO, igual ao do modulo host
+# `mastertool_bridge.templates.selector`. Os dois runtimes (CPython 3 no host,
+# IronPython 2.7 aqui) nao se importam, e a duplicacao e guardada por teste de
+# igualdade, nao por confianca.
+SELECTOR_DIAG_RESOLVED = "selector_resolved"
+SELECTOR_DIAG_NO_MATCH = "selector_no_match"
+SELECTOR_DIAG_AMBIGUOUS = "selector_ambiguous"
+SELECTOR_DIAG_INVALID = "selector_invalid"
+SELECTOR_DIAG_BUDGET_EXCEEDED = "selector_budget_exceeded"
+SELECTOR_DIAG_UNREADABLE = "selector_unreadable_node"
+
+SELECTOR_DIAGNOSTICS = (
+    SELECTOR_DIAG_RESOLVED, SELECTOR_DIAG_NO_MATCH, SELECTOR_DIAG_AMBIGUOUS,
+    SELECTOR_DIAG_INVALID, SELECTOR_DIAG_BUDGET_EXCEEDED,
+    SELECTOR_DIAG_UNREADABLE,
+)
 
 MAX_DEPTH = 8
 MAX_TOTAL_NODES = 1024
@@ -298,6 +339,11 @@ STATUS_PLAN_NOT_EXECUTABLE = "plan_not_executable"
 STATUS_UNKNOWN_OPERATION = "unknown_operation"
 STATUS_OPERATION_NOT_IMPLEMENTED = "operation_not_implemented"
 STATUS_TEXT_HASH_MISMATCH = "text_hash_mismatch"
+# O texto ANTERIOR do alvo nao e o que o plano mediu. Status
+# PROPRIO: "o conteudo que eu ia sobrescrever nao e o que voce viu"
+# e "o texto novo nao confere com o plano" pedem acoes opostas --
+# um manda remedir o projeto, o outro manda refazer o plano.
+STATUS_BEFORE_HASH_MISMATCH = "before_hash_mismatch"
 STATUS_TEXT_MISSING = "text_missing"
 STATUS_TARGET_NOT_FOUND = "target_not_found"
 STATUS_MUTATION_FAILED = "mutation_failed"
@@ -307,7 +353,8 @@ STATUS_FATAL = "fatal"
 ALL_STATUSES = (
     STATUS_EXECUTED, STATUS_PRECONDITION_FAILED, STATUS_PLAN_NOT_EXECUTABLE,
     STATUS_UNKNOWN_OPERATION, STATUS_OPERATION_NOT_IMPLEMENTED,
-    STATUS_TEXT_HASH_MISMATCH, STATUS_TEXT_MISSING, STATUS_TARGET_NOT_FOUND,
+    STATUS_TEXT_HASH_MISMATCH, STATUS_BEFORE_HASH_MISMATCH,
+    STATUS_TEXT_MISSING, STATUS_TARGET_NOT_FOUND,
     STATUS_MUTATION_FAILED, STATUS_SAVE_FAILED, STATUS_FATAL,
 )
 
@@ -320,6 +367,7 @@ EXIT_BY_STATUS = {
     STATUS_UNKNOWN_OPERATION: 2,
     STATUS_OPERATION_NOT_IMPLEMENTED: 2,
     STATUS_TEXT_HASH_MISMATCH: 2,
+    STATUS_BEFORE_HASH_MISMATCH: 2,
     STATUS_TEXT_MISSING: 2,
     STATUS_TARGET_NOT_FOUND: 3,
     STATUS_MUTATION_FAILED: 3,
@@ -328,7 +376,7 @@ EXIT_BY_STATUS = {
 }
 
 ARTIFACT_NAMES = ("execution-manifest.json", "execution-steps.json",
-                  "execution-completion.json")
+                  "execution-completion.json", "before-texts.json")
 
 try:
     _STRING_TYPES = (basestring,)                                  # noqa: F821
@@ -417,6 +465,32 @@ def text_from_spec(spec, source_location):
     """
     if not is_text(source_location):
         return None, "source_location vazio"
+
+    # ALTERACAO DE PREEXISTENTE (R2): `modify:familia:nome:campo`. O texto vive
+    # em `spec["modifications"]`, e nao numa familia de objeto -- porque o
+    # objeto nao esta sendo criado, e a spec nao o descreve por inteiro.
+    if source_location.startswith("modify:"):
+        partes = source_location.split(":")
+        if len(partes) != 4:
+            return None, ("source_location %r nao tem a forma "
+                          "modify:familia:nome:campo" % (source_location,))
+        _prefixo, familia, nome, campo = partes
+        entradas = spec.get("modifications")
+        if not isinstance(entradas, list):
+            return None, "spec nao tem `modifications`"
+        for entrada in entradas:
+            if not isinstance(entrada, dict):
+                continue
+            if (entrada.get("family") != familia
+                    or entrada.get("name") != nome
+                    or entrada.get("field") != campo):
+                continue
+            if "text" not in entrada:
+                return None, "modificacao de %s:%s nao tem `text`" % (nome, campo)
+            return as_text(entrada.get("text")), None
+        return None, "spec nao tem modificacao de %s:%s:%s" % (familia, nome,
+                                                               campo)
+
     partes = source_location.split(":")
     if len(partes) != 3:
         return None, "source_location %r nao tem a forma familia:nome:campo" % (
@@ -504,67 +578,183 @@ def read_type_guid(node):
         return None
 
 
-def resolve_container(project):
-    """Desce `CONTAINER_NODE_PATH` por indice e confere nome E tipo.
+def read_name_strict(node):
+    """`(nome, erro)`. Existe ao lado de `read_name` porque a diferenca entre
+    "nao tem nome" e "nao foi possivel ler o nome" decide o veredito da
+    selecao: um no ilegivel PODE ser o segundo candidato, e trata-lo como "nao
+    casa" transforma ambiguidade em unicidade aparente."""
+    try:
+        return as_text(node.get_name(False)), None
+    except Exception as exc:                                       # noqa: BLE001
+        return None, "get_name falhou: %r" % (exc,)
 
-    Por indice, e nao por nome: o caminho e a rota medida do template, e
-    procurar "o no chamado Application" acharia qualquer coisa que se chamasse
-    assim. Nome e tipo entram DEPOIS, como conferencia.
+
+def read_type_guid_strict(node):
+    """`(tipo, erro)`. Mesmo motivo de `read_name_strict`."""
+    try:
+        return as_text(node.type), None
+    except Exception as exc:                                       # noqa: BLE001
+        return None, "leitura de .type falhou: %r" % (exc,)
+
+
+def select_unique_node(project, nome_alvo, type_guid_alvo):
+    """Selecao SEMANTICA de UM no: varre a arvore INTEIRA e exige exatamente
+    um casamento de nome + type_guid. Devolve `(node, erro, selecao)`.
+
+    Varredura exaustiva de proposito -- parar no primeiro candidato tornaria a
+    ambiguidade indetectavel, e ambiguidade silenciosa e o modo de falha que
+    faz uma escrita acertar o objeto errado.
+
+    Tres situacoes que uma busca ingenua chamaria de sucesso aqui RECUSAM,
+    porque a promessa "existe exatamente um" so pode ser feita sobre arvore
+    inteiramente varrida:
+
+      * orcamento estourado -- o segundo alvo pode estar no pedaco nao varrido;
+      * no ilegivel -- nome/tipo que nao puderam ser lidos, ou lista de filhos
+        que escondeu uma subarvore inteira;
+      * profundidade maxima atingida com filhos por varrer.
+
+    NARROWING CONHECIDO em relacao ao modulo host: `read_children` devolve erro
+    tanto para falha de leitura quanto para `Count` acima de
+    `MAX_CHILDREN_PER_NODE`, e aqui os dois caem em `selector_unreadable_node`.
+    O host separa os dois diagnosticos. As duas portas recusam, que e o que o
+    gate exige; a mensagem carrega o motivo real.
     """
+    selecao = {
+        "selector": {
+            "name": nome_alvo,
+            "type_guid": type_guid_alvo,
+            "expected_cardinality": 1,
+        },
+        "diagnostic": None,
+        "candidates": [],
+        "visited": 0,
+        "unreadable": 0,
+        "problems": [],
+    }
     if project is None:
-        return None, "projeto indisponivel"
-    indices = CONTAINER_NODE_PATH.split("/")[1:]
-    atual = project
-    for bruto in indices:
-        try:
-            indice = int(bruto)
-        except ValueError:
-            return None, "node_path invalido: %r" % (CONTAINER_NODE_PATH,)
-        filhos, erro = read_children(atual)
-        if erro:
-            return None, erro
-        if indice >= len(filhos):
-            return None, "indice %d fora da arvore em %r" % (
-                indice, CONTAINER_NODE_PATH)
-        atual = filhos[indice]
-    nome = read_name(atual)
-    if nome != EXPECTED_CONTAINER_NAME:
-        return None, "container em %s se chama %r, esperado %r" % (
-            CONTAINER_NODE_PATH, nome, EXPECTED_CONTAINER_NAME)
-    tipo = read_type_guid(atual)
-    if tipo != EXPECTED_CONTAINER_TYPE_GUID:
-        return None, "container tem type %r, esperado %r" % (
-            tipo, EXPECTED_CONTAINER_TYPE_GUID)
-    return atual, None
+        selecao["diagnostic"] = SELECTOR_DIAG_INVALID
+        selecao["problems"].append("projeto indisponivel")
+        return None, "projeto indisponivel", selecao
+
+    candidatos = []
+    problemas = []
+    visitados = 0
+    ilegiveis = 0
+    estourou = False
+    pilha = [(project, "root", 0)]
+
+    while pilha:
+        if visitados >= MAX_TOTAL_NODES:
+            estourou = True
+            problemas.append(
+                "teto de %d nos atingido antes do fim da varredura"
+                % MAX_TOTAL_NODES)
+            break
+        atual, node_path, profundidade = pilha.pop()
+        visitados += 1
+
+        # A RAIZ E O PROJETO, NAO UM OBJETO DENTRO DELE.
+        #
+        # ACHADO do piloto de 2026-08-02: `ScriptProject` nao expoe
+        # `get_name`, e a primeira versao desta funcao lia o nome de TODO no,
+        # inclusive da raiz. Resultado: AttributeError na raiz -> "1 no
+        # ilegivel" -> recusa, nas tres runs, antes de qualquer escrita.
+        #
+        # Ler nome de um `ScriptProject` e erro de categoria, e nao evidencia
+        # de arvore ilegivel. A raiz nunca e candidata; o que se exige dela e
+        # que os FILHOS sejam alcancaveis -- e isso continua sendo exigido
+        # logo abaixo, com a mesma severidade de antes.
+        eh_raiz = node_path == "root"
+        if not eh_raiz:
+            nome, erro = read_name_strict(atual)
+            if erro:
+                ilegiveis += 1
+                problemas.append("nome ilegivel em %s: %s" % (node_path, erro))
+                continue
+            tipo, erro = read_type_guid_strict(atual)
+            if erro:
+                ilegiveis += 1
+                problemas.append("tipo ilegivel em %s: %s" % (node_path, erro))
+                continue
+
+            if nome == nome_alvo and is_text(tipo) \
+                    and tipo.lower() == type_guid_alvo.lower():
+                candidatos.append((node_path, atual))
+
+        filhos, erro_filhos = read_children(atual)
+        if erro_filhos:
+            ilegiveis += 1
+            problemas.append(
+                "filhos ilegiveis em %s (subarvore nao varrida): %s"
+                % (node_path, erro_filhos))
+            continue
+        if profundidade >= MAX_DEPTH:
+            if filhos:
+                estourou = True
+                problemas.append(
+                    "profundidade maxima (%d) atingida em %s com %d filho(s) "
+                    "por varrer" % (MAX_DEPTH, node_path, len(filhos)))
+            continue
+
+        indice = len(filhos) - 1
+        while indice >= 0:
+            pilha.append((filhos[indice],
+                          "%s/%d" % (node_path, indice),
+                          profundidade + 1))
+            indice -= 1
+
+    candidatos.sort()
+    # `node_path` sai no artefato como DIAGNOSTICO -- para o humano saber onde
+    # o no foi achado. Nenhuma decisao deste probe o consome.
+    selecao["candidates"] = [caminho for caminho, _no in candidatos]
+    selecao["visited"] = visitados
+    selecao["unreadable"] = ilegiveis
+    selecao["problems"] = problemas
+
+    # A ordem das recusas importa: varredura incompleta vence contagem, porque
+    # com parte da arvore por ler "achei exatamente um" nao se sustenta nem
+    # quando um candidato foi de fato encontrado.
+    if ilegiveis:
+        selecao["diagnostic"] = SELECTOR_DIAG_UNREADABLE
+        return None, ("%d no(s) ilegivel(is): unicidade de %r nao pode ser "
+                      "afirmada sobre arvore parcialmente lida"
+                      % (ilegiveis, nome_alvo)), selecao
+    if estourou:
+        selecao["diagnostic"] = SELECTOR_DIAG_BUDGET_EXCEEDED
+        return None, ("varredura incompleta apos %d no(s): um segundo %r pode "
+                      "estar na parte nao varrida" % (visitados, nome_alvo)), selecao
+    if not candidatos:
+        selecao["diagnostic"] = SELECTOR_DIAG_NO_MATCH
+        return None, ("nenhum no chamado %r com type_guid %s em %d no(s) "
+                      "varrido(s)" % (nome_alvo, type_guid_alvo, visitados)), selecao
+    if len(candidatos) > 1:
+        selecao["diagnostic"] = SELECTOR_DIAG_AMBIGUOUS
+        return None, ("%d nos chamados %r com o mesmo type_guid (%s) -- o "
+                      "seletor nao discrimina, e escolher um seria a decisao "
+                      "errada" % (len(candidatos), nome_alvo,
+                                  ", ".join(selecao["candidates"][:8]))), selecao
+
+    selecao["diagnostic"] = SELECTOR_DIAG_RESOLVED
+    return candidatos[0][1], None, selecao
+
+
+def resolve_container(project):
+    """O container IEC, por identidade SEMANTICA. `(node, erro, selecao)`."""
+    return select_unique_node(project, EXPECTED_CONTAINER_NAME,
+                              EXPECTED_CONTAINER_TYPE_GUID)
 
 
 def find_by_name_and_type(project, nome, type_guid):
-    """DFS bounded, casando NOME **e** TIPO. Duplicata nao e desempatada."""
-    if project is None:
-        return None, "projeto indisponivel"
-    achado = None
-    pilha = [(project, 0)]
-    visitados = 0
-    while pilha:
-        if visitados >= MAX_TOTAL_NODES:
-            return None, "varredura truncada em %d nos" % MAX_TOTAL_NODES
-        atual, profundidade = pilha.pop()
-        visitados += 1
-        if read_name(atual) == nome and read_type_guid(atual) == type_guid:
-            if achado is not None:
-                return None, "mais de um objeto chamado %r com o mesmo tipo" % (
-                    nome,)
-            achado = atual
-        if profundidade >= MAX_DEPTH:
-            continue
-        filhos, _erro = read_children(atual)
-        indice = len(filhos) - 1
-        while indice >= 0:
-            pilha.append((filhos[indice], profundidade + 1))
-            indice -= 1
-    if achado is None:
-        return None, "objeto %r do tipo esperado nao encontrado" % (nome,)
-    return achado, None
+    """DFS bounded, casando NOME **e** TIPO. `(node, erro)`.
+
+    Delega a `select_unique_node` -- uma implementacao so. Antes da R0b esta
+    funcao engolia erro de leitura (`read_name` devolve None em excecao) e
+    ignorava erro de `read_children`, de modo que um no ilegivel nunca podia
+    ser o segundo candidato e a duplicata ficava indetectavel.
+    """
+    node, erro, _selecao = select_unique_node(project, nome, type_guid)
+    return node, erro
 
 
 def read_document(node, indicator_name, document_name):
@@ -945,6 +1135,7 @@ def run_executor(script_globals, argv, safety, project_access, file_io,
         "steps_executed": 0,
         "steps_delegated": 0,
         "step_log": [],
+        "before_texts": [],
         "created_objects": [],
         "operations_requested": [],
         "operations_authorized": [],
@@ -1149,7 +1340,12 @@ def run_executor(script_globals, argv, safety, project_access, file_io,
     except Exception:                                              # noqa: BLE001
         result["opened_project"] = None
 
-    container, erro_container = resolve_container(projeto)
+    container, erro_container, selecao_container = resolve_container(projeto)
+    # A selecao entra no artefato nos DOIS caminhos -- resolvida ou recusada.
+    # Registrar so o sucesso deixaria a recusa sem evidencia de onde o probe
+    # procurou, que e exatamente o que o operador precisa para decidir se o
+    # template mudou ou se o seletor e que ficou fraco.
+    result["container_selection"] = selecao_container
     if container is None:
         problems.append("container nao resolvido: %s" % (erro_container,))
         return finish(STATUS_PRECONDITION_FAILED)
@@ -1378,6 +1574,62 @@ def run_executor(script_globals, argv, safety, project_access, file_io,
                     problems.append("documento de %r nao resolvido: %s"
                                     % (alvo, erro))
                     return finish(STATUS_TARGET_NOT_FOUND)
+                # ALTERACAO DE OBJETO PREEXISTENTE (fase R2): antes de
+                # sobrescrever, PROVAR que o conteudo atual e o que foi medido.
+                #
+                # Sem isto o campo `expected_before_sha256` seria decorativo, e
+                # a diferenca entre alteracao transacional e escrita cega e
+                # exatamente esta leitura. Se o objeto mudou entre a medicao e
+                # esta execucao, os hashes divergem e a run PARA -- ninguem
+                # aprovou sobrescrever o conteudo que esta la agora.
+                if passo.get("expected_before_kind") == EXPECTED_BEFORE_MEASURED:
+                    esperado_antes = passo.get("expected_before_sha256")
+                    if not is_text(esperado_antes):
+                        problems.append(
+                            "passo %r declara procedencia %r sem "
+                            "expected_before_sha256" % (sequencia,
+                                                        EXPECTED_BEFORE_MEASURED))
+                        return finish(STATUS_BEFORE_HASH_MISMATCH)
+                    try:
+                        conteudo_atual = as_text(documento.text)
+                    except Exception as exc:                       # noqa: BLE001
+                        problems.append(
+                            "texto atual de %r ilegivel, e sem ele a alteracao "
+                            "nao pode ser autorizada: %r" % (alvo, exc))
+                        return finish(STATUS_BEFORE_HASH_MISMATCH)
+                    observado = sha256_of_text(conteudo_atual)
+                    if observado != esperado_antes.lower():
+                        problems.append(
+                            "texto anterior de %r e %s, e o plano mediu %s. O "
+                            "objeto mudou desde a medicao, e sobrescreve-lo "
+                            "descartaria conteudo que ninguem examinou."
+                            % (alvo, observado, esperado_antes.lower()))
+                        return finish(STATUS_BEFORE_HASH_MISMATCH)
+                    result["step_log"].append({
+                        "sequence": sequencia, "operation": operacao,
+                        "target": alvo, "outcome": "before_hash_verified",
+                        "before_sha256_observed": observado})
+                    # O CONTEUDO anterior, e nao so o hash dele.
+                    #
+                    # Ate aqui o executor lia este texto, conferia o hash e o
+                    # descartava. Isso bastava para provar que a alteracao e
+                    # transacional, e NAO bastava para desfaze-la: hash nao
+                    # reconstroi texto. Reversibilidade e a quarta palavra do
+                    # gate da fase R2, e sem esta linha ela dependia de alguem
+                    # ainda ter o projeto de origem em maos.
+                    #
+                    # O artefato passa a carregar CONTEUDO do projeto, e isso e
+                    # uma mudanca do que ele significa -- declarada aqui, e nao
+                    # descoberta depois por quem abrir o arquivo. Nao e novidade
+                    # de categoria: a spec ja carrega o texto NOVO, e este e o
+                    # simetrico dela.
+                    result["before_texts"].append({
+                        "source_location": passo.get("source_location"),
+                        "target_kind": passo.get("target_kind"),
+                        "name": alvo,
+                        "sha256": observado,
+                        "text": conteudo_atual})
+
                 replace_guarded(documento, textos.get(sequencia), safety)
 
             elif operacao == OP_CREATE_PROGRAM_CALL:
@@ -1638,9 +1890,20 @@ def write_artifacts(result, file_io):
         "spec_path": result.get("spec_path"),
         "spec_sha256": result.get("spec_sha256"),
         "phase": result.get("phase_observed"),
+        # A SELECAO DO CONTAINER vai para o disco, e nao so para o dicionario
+        # em memoria. ACHADO do piloto de 2026-08-02: as tres runs recusaram
+        # com "1 no ilegivel" e o artefato nao dizia QUAL no -- o diagnostico
+        # existia, e morria com o processo. Um teste conferia o `result` em
+        # memoria; nenhum conferia o arquivo.
+        "container_selection": result.get("container_selection"),
         "journal": result.get("journal"),
     })
     grava("execution-steps.json", {"steps": result.get("step_log")})
+    # Gravado SEMPRE, inclusive vazio. Um plano sem alteracao produz lista
+    # vazia, e isso e diferente de artefato ausente -- que e falha de gravacao.
+    grava("before-texts.json", {
+        "schema_version": SCHEMA_VERSION,
+        "objects": result.get("before_texts") or []})
     grava("execution-completion.json", build_completion(result))
     return escritos
 

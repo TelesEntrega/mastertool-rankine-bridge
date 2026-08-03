@@ -298,7 +298,7 @@ async def test_find_calls_mainprg_is_resolved_through_protocol(
 async def test_ask_project_portuguese_question_is_answered_through_protocol(
     real_index_dir: Path,
 ) -> None:
-    question = "onde VarEquipamentosExemplo.MT01.RetornoDisjuntor é escrito?"
+    question = "onde VarMotores.MT01.RetornoDisjuntor é escrito?"
 
     async with _mcp_client_session() as session:
         result = await session.call_tool(

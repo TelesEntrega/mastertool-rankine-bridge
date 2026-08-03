@@ -36,7 +36,7 @@ def document_project(project: ExportedProject) -> str:
                 inputs = symbol.variables_in_block("VAR_INPUT")
                 outputs = symbol.variables_in_block("VAR_OUTPUT")
                 if inputs:
-                    lines.append("- EntradasExemplo: " + ", ".join(
+                    lines.append("- Entradas: " + ", ".join(
                         f"`{v.name}: {v.var_type}`" for v in inputs))
                 if outputs:
                     lines.append("- Saídas: " + ", ".join(

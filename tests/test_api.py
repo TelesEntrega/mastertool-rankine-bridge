@@ -332,16 +332,16 @@ def test_evidence_round_trip_find_writes(tmp_path) -> None:
     refs = [
         _ref_entry(
             "application/prg/0#stmt0",
-            "VarEquipamentosExemplo.MT01.RetornoDisjuntor",
+            "VarMotores.MT01.RetornoDisjuntor",
             "write",
             resolution_state="partially_resolved",
             resolved_symbol="application/gvl/0",
-            resolved_prefix="VarEquipamentosExemplo.MT01",
+            resolved_prefix="VarMotores.MT01",
             unresolved_suffix="RetornoDisjuntor",
             reason="member metadata unavailable",
         )
     ]
-    internal = _internal_find_writes(_internal_bundle([], resolved_references=refs), "VarEquipamentosExemplo.MT01.RetornoDisjuntor")
+    internal = _internal_find_writes(_internal_bundle([], resolved_references=refs), "VarMotores.MT01.RetornoDisjuntor")
 
     for d in internal.evidence:
         assert QueryEvidence.from_dict(d).to_dict() == d

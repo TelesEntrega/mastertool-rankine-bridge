@@ -202,7 +202,7 @@ def _report_to_markdown(report):
         "## Invocacao",
         "- Tentada: %s" % report["invocation"]["attempted"],
         "- Quantidade de chamadas realizadas: %s" % report["invocation"]["call_count"],
-        "- PrgParametrosExemplo efetivamente enviados: %s" % report["invocation"]["parameters_sent"],
+        "- Parametros efetivamente enviados: %s" % report["invocation"]["parameters_sent"],
         "- Inicio: %s" % report["invocation"]["started_at"],
         "- Fim: %s" % report["invocation"]["finished_at"],
         "- Duracao: %s ms" % report["invocation"]["duration_ms"],
