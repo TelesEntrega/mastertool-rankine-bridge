@@ -1,4 +1,4 @@
-# Política de segurança formal do mastertool-rankine-bridge.
+# Política de segurança formal do mastertool-ai-bridge.
 # Este arquivo é normativo: código e agentes DEVEM recusar operações que o violem.
 # Alterações nesta política exigem aprovação humana registrada em Git.
 

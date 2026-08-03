@@ -39,7 +39,7 @@
       "pattern": "^[0-9a-f]{64}$"
     },
     "creation_order": {
-      "description": "Chaves qualificadas por família (duts:ST_Equipamento) na ordem topológica canônica, com empate resolvido por (rank da família, nome).",
+      "description": "Chaves qualificadas por família (duts:ST_Exemplo) na ordem topológica canônica, com empate resolvido por (rank da família, nome).",
       "type": "array",
       "items": { "type": "string", "pattern": "^(duts|gvls|functions|function_blocks|programs):[A-Za-z_][A-Za-z0-9_]*$" }
     },

@@ -42,7 +42,7 @@ acidente de duas formas:
    é `resolve_node_path_for_file`, que recebe o sha256 REALMENTE computado
    do arquivo em mãos e só devolve o node_path se ele bater com uma entrada
    do registry. Não existe atalho por `template_id`: dois templates com o
-   mesmo `template_id` (ex.: duas versões do "TemplateExemplo") mas sha256 diferentes
+   mesmo `template_id` (ex.: duas versões do mesmo template) mas sha256 diferentes
    têm, corretamente, `node_path`s tratados como independentes — pedir pelo
    nome não devolve node_path nenhum, só pedir pelo hash do arquivo devolve.
 

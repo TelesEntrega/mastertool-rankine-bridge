@@ -42,6 +42,7 @@ GUID difere.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,14 @@ POSTSAVE_DIRNAME = "postsave"
 # A fábrica não tem `structural_diff`: ela não parte de uma árvore-base
 # conhecida, e sim de um template que a spec nomeia. A ausência é DECLARADA
 # aqui (`structural_diff: None`) em vez de a camada sumir sem explicação.
+#
+# `completion` é DECLARADO por layout, e não fixado como "completion.json".
+# ACHADO que motivou isto: a cadeia da fábrica grava
+# `execution-completion.json` (probe 46, `ARTIFACT_NAMES`), e o nome fixo
+# encontrava esse arquivo em NENHUM lote real — a distribuição de campos
+# voláteis saía vazia e ninguém era avisado, porque campo volátil ausente não
+# reprova. Um relatório diria "0 campos voláteis observados" sobre um lote que
+# tem três.
 LAYOUT_W1_4 = {
     "name": "w1-4",
     "subdir": POSTSAVE_DIRNAME,
@@ -70,6 +79,7 @@ LAYOUT_W1_4 = {
     "nodes": POSTSAVE_FLAT_NODES_FILENAME,
     "structural_diff": STRUCTURAL_DIFF_FILENAME,
     "texts_shape": "mapping",
+    "completion": "completion.json",
 }
 
 LAYOUT_FACTORY = {
@@ -79,6 +89,13 @@ LAYOUT_FACTORY = {
     "nodes": "factory-verify-flat-nodes.json",
     "structural_diff": None,
     "texts_shape": "objects",
+    # Caminho RELATIVO ao diretório de artefatos, e com subdiretório: a árvore
+    # real de `run-034` (medida, não suposta) é
+    # `artefatos/{authoring-plan.json, build/, execucao/, verificacao/}`, e a
+    # conclusão do executor fica em `execucao/`. A primeira correção deste
+    # nome acertou o arquivo e errou a pasta — e o sintoma seria o mesmo:
+    # distribuição de voláteis vazia, sem reprovar nada.
+    "completion": "execucao/execution-completion.json",
 }
 
 ALL_LAYOUTS = (LAYOUT_W1_4, LAYOUT_FACTORY)
@@ -216,6 +233,220 @@ def _texts_by_key(payload: Any, shape: str) -> dict[str, str | None] | None:
     return None
 
 
+@dataclass
+class RepeatabilityResult:
+    """Veredito de N gerações — o que a fase R1 pede, e que a comparação
+    pareada não conseguia expressar.
+
+    POR QUE NÃO BASTA COMPARAR TODAS CONTRA UMA REFERÊNCIA
+    ======================================================
+    `compare_generations` mistura DUAS relações de natureza oposta:
+
+    * as camadas de equivalência (textos, assinatura da árvore, diff
+      estrutural) são igualdade de valor canônico. Igualdade é transitiva:
+      se A≡R e B≡R, então A≡B. Comparar cada geração contra uma referência
+      basta, e comparar todos contra todos só gastaria tempo;
+    * a exigência de **independência** — GUIDs de objeto distintos — é o
+      contrário disso. Ela é ANTI-reflexiva (uma geração comparada consigo
+      mesma tem de reprovar) e **não é transitiva**: A≠B e B≠C não implicam
+      A≠C. Verificá-la só contra a referência deixaria passar duas gerações
+      não-referência que nasceram com os mesmos GUIDs — que é exatamente a
+      forma como "dez execuções" poderiam ser, na verdade, uma execução
+      copiada nove vezes.
+
+    Por isso este resultado usa referência para equivalência e **todos os
+    pares** para independência. Com n=10 são 45 pares, custo irrelevante
+    perto de errar o veredito da fase.
+    """
+
+    layout: str = "w1-4"
+    generations: list[str] = field(default_factory=list)
+    reference: str | None = None
+    minimum_required: int = 0
+    per_generation: list[dict] = field(default_factory=list)
+    independence_violations: list[str] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+    # Distribuição dos campos classificados como voláteis PERMITIDOS, com os
+    # valores observados em cada geração. Estar na allowlist dispensa o campo
+    # de reprovar — não dispensa de aparecer. Um campo volátil que assume dez
+    # valores distintos em dez execuções é o esperado; o mesmo campo assumindo
+    # dois valores que se alternam é um achado que o veredito binário
+    # esconderia.
+    volatile_distribution: list[dict] = field(default_factory=list)
+
+    @property
+    def count(self) -> int:
+        return len(self.generations)
+
+    @property
+    def equivalent_count(self) -> int:
+        return sum(1 for g in self.per_generation if g["equivalent"])
+
+    @property
+    def all_equivalent(self) -> bool:
+        return bool(self.per_generation) and self.equivalent_count == len(
+            self.per_generation)
+
+    @property
+    def meets_minimum(self) -> bool:
+        return self.count >= self.minimum_required
+
+    @property
+    def repeatable(self) -> bool:
+        """DERIVADO, e nunca declarado. As três condições são independentes:
+        dez execuções equivalentes mas não independentes não provam nada; dez
+        independentes e divergentes provam o contrário; e duas de cada não
+        chegam ao piso da norma."""
+        return (
+            not self.problems
+            and self.meets_minimum
+            and self.all_equivalent
+            and not self.independence_violations
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "repeatable": self.repeatable,
+            "layout": self.layout,
+            "count": self.count,
+            "minimum_required": self.minimum_required,
+            "meets_minimum": self.meets_minimum,
+            "reference": self.reference,
+            "generations": list(self.generations),
+            "equivalent_count": self.equivalent_count,
+            "all_equivalent": self.all_equivalent,
+            "per_generation": [dict(g) for g in self.per_generation],
+            "independence_violations": list(self.independence_violations),
+            "volatile_distribution": [dict(v) for v in self.volatile_distribution],
+            "problems": list(self.problems),
+        }
+
+
+def _guids_of(artifacts: Path, layout: dict) -> list[str] | None:
+    nodes = _nodes_of(_read_json(artifacts / layout["subdir"] / layout["nodes"]))
+    if nodes is None:
+        return None
+    return object_guids(nodes)
+
+
+def compare_many(
+    artifact_dirs: Sequence[Path | str],
+    layout: dict | None = None,
+    minimum_required: int | None = None,
+) -> RepeatabilityResult:
+    """Veredito de repetibilidade sobre N diretórios de artefatos.
+
+    `minimum_required` vem, por padrão, do mesmo lugar que o gate do Template
+    Profile lê: `MIN_INDEPENDENT_RUNS["repeatable"]`. Uma segunda constante
+    aqui poderia divergir daquela, e duas versões do mesmo número são uma a
+    mais do que a norma tem.
+    """
+    layout = layout or LAYOUT_W1_4
+    if minimum_required is None:
+        # Import local para não criar dependência de importação em tempo de
+        # módulo entre `automation` e `templates` — o número é normativo, o
+        # acoplamento não precisa ser estrutural.
+        from mastertool_bridge.templates.profile import MIN_INDEPENDENT_RUNS
+
+        minimum_required = MIN_INDEPENDENT_RUNS["repeatable"]
+
+    caminhos = [Path(d) for d in artifact_dirs]
+    resultado = RepeatabilityResult(
+        layout=layout["name"],
+        generations=[str(c) for c in caminhos],
+        minimum_required=minimum_required,
+    )
+
+    if len(caminhos) < 2:
+        resultado.problems.append(
+            "repetibilidade exige ao menos duas gerações para comparar; "
+            f"recebidas {len(caminhos)}")
+        return resultado
+
+    duplicados = sorted({str(c) for c in caminhos
+                         if [str(x) for x in caminhos].count(str(c)) > 1})
+    if duplicados:
+        # Mesmo diretório duas vezes não é geração repetida: é o mesmo
+        # artefato contado duas vezes, e passaria em toda camada de igualdade.
+        resultado.problems.append(
+            "diretório repetido na lista de gerações: "
+            + ", ".join(duplicados))
+        return resultado
+
+    referencia = caminhos[0]
+    resultado.reference = str(referencia)
+
+    for caminho in caminhos[1:]:
+        comparacao = compare_generations(referencia, caminho, layout)
+        resultado.per_generation.append({
+            "generation": str(caminho),
+            "equivalent": comparacao.equivalent,
+            "divergences": list(comparacao.divergences),
+            "layers_compared": list(comparacao.layers_compared),
+            "layers_absent": list(comparacao.layers_absent),
+            "volatile_differences": list(comparacao.volatile_differences),
+        })
+
+    # A referência entra no relatório como equivalente a si mesma POR
+    # DEFINIÇÃO, e não por medição — comparar A com A dispararia a regra de
+    # independência e produziria uma divergência que não significa nada.
+    resultado.per_generation.insert(0, {
+        "generation": str(referencia),
+        "equivalent": True,
+        "divergences": [],
+        "layers_compared": [],
+        "layers_absent": [],
+        "volatile_differences": [],
+        "note": "referência: equivalente a si mesma por definição, não por medição",
+    })
+
+    # --- independência: TODOS os pares --------------------------------------
+    guids: dict[str, list[str] | None] = {
+        str(c): _guids_of(c, layout) for c in caminhos}
+    ilegiveis = sorted(k for k, v in guids.items() if v is None)
+    if ilegiveis:
+        resultado.problems.append(
+            "árvore ausente ou ilegível, independência não verificável em: "
+            + ", ".join(ilegiveis))
+    for i in range(len(caminhos)):
+        for j in range(i + 1, len(caminhos)):
+            a, b = str(caminhos[i]), str(caminhos[j])
+            ga, gb = guids.get(a), guids.get(b)
+            if not ga or not gb:
+                continue
+            if ga == gb:
+                resultado.independence_violations.append(
+                    f"{a} e {b} têm os mesmos GUIDs de objeto: não são "
+                    "execuções independentes")
+
+    # --- distribuição do que é volátil PERMITIDO ----------------------------
+    #
+    # A lista de campos é LITERAL (`VOLATILE_COMPLETION_FIELDS`), nunca um
+    # padrão que remova recursivamente qualquer chave chamada `id`, `guid` ou
+    # `time`: uma allowlist por forma do nome esconderia campo que ninguém
+    # decidiu excluir.
+    nome_conclusao = layout.get("completion", "completion.json")
+    conclusoes = {str(c): _read_json(c / nome_conclusao) for c in caminhos}
+    for campo in VOLATILE_COMPLETION_FIELDS:
+        valores: dict[str, Any] = {}
+        for caminho, conclusao in conclusoes.items():
+            if isinstance(conclusao, dict) and campo in conclusao:
+                valores[caminho] = conclusao[campo]
+        if not valores:
+            continue
+        distintos = {json.dumps(v, sort_keys=True, ensure_ascii=False)
+                     for v in valores.values()}
+        resultado.volatile_distribution.append({
+            "field": campo,
+            "classification": "allowed_volatile",
+            "distinct_values": len(distintos),
+            "observed_in": len(valores),
+            "runs": valores,
+        })
+
+    return resultado
+
+
 def compare_generations(
     artifacts_a: Path | str, artifacts_b: Path | str, layout: dict | None = None
 ) -> GenerationEquivalenceResult:
@@ -300,8 +531,9 @@ def compare_generations(
                         f"diff estrutural: {chave} difere")
 
     # --- volátil: registrado, nunca somado ao veredito ----------------------
-    ca = _read_json(a / "completion.json")
-    cb = _read_json(b / "completion.json")
+    nome_conclusao = layout.get("completion", "completion.json")
+    ca = _read_json(a / nome_conclusao)
+    cb = _read_json(b / nome_conclusao)
     if isinstance(ca, dict) and isinstance(cb, dict):
         for chave in VOLATILE_COMPLETION_FIELDS:
             if ca.get(chave) != cb.get(chave):

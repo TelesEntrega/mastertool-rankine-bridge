@@ -29,7 +29,7 @@ def load_manifest(export_dir: Path) -> dict:
     if not manifest_path.is_file():
         raise ExportNotFoundError(
             f"Manifesto não encontrado: {manifest_path}. "
-            "O diretório é realmente um export do mastertool-rankine-bridge?")
+            "O diretório é realmente um export do mastertool-ai-bridge?")
     return read_json(manifest_path)
 
 

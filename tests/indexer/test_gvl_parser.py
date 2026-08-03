@@ -10,11 +10,11 @@ def test_gvl_with_qualified_only_pragma_sets_flag() -> None:
 VAR_GLOBAL
 END_VAR
 VAR_GLOBAL RETAIN
-    MT01: Equipamento;
-    MT02: Equipamento;
+    MT01: Motor;
+    MT02: Motor;
 END_VAR
 VAR_GLOBAL
-    MT03: Equipamento;
+    MT03: Motor;
 END_VAR
 """
     symbol, diags = parse_gvl_declaration(text, "f.st", "n1", "GvlMotores")
@@ -43,11 +43,11 @@ def test_gvl_concatenates_variables_from_multiple_var_global_blocks() -> None:
 VAR_GLOBAL
 END_VAR
 VAR_GLOBAL RETAIN
-    MT01: Equipamento;
-    MT02: Equipamento;
+    MT01: Motor;
+    MT02: Motor;
 END_VAR
 VAR_GLOBAL
-    MT03: Equipamento;
+    MT03: Motor;
 END_VAR
 """
     symbol, diags = parse_gvl_declaration(text, "f.st", "n3", "GvlMotores")
@@ -99,8 +99,8 @@ def test_gvl_pou_kind_is_always_gvl() -> None:
 def test_file_without_any_var_global_is_not_treated_as_gvl() -> None:
     # Um DUT (TYPE ... STRUCT ... END_STRUCT ... END_TYPE) não é GVL nem
     # POU — não deve ser rotulado como GVL só por não ter cabeçalho de POU.
-    text = "TYPE Equipamento :\nSTRUCT\n    Ligado : BOOL;\nEND_STRUCT\nEND_TYPE\n"
-    symbol, diags = parse_gvl_declaration(text, "f.st", "n7", "Equipamento")
+    text = "TYPE Motor :\nSTRUCT\n    Ligado : BOOL;\nEND_STRUCT\nEND_TYPE\n"
+    symbol, diags = parse_gvl_declaration(text, "f.st", "n7", "Motor")
 
     assert symbol is None
     assert any(d.code == "gvl_header_not_found" for d in diags.diagnostics)

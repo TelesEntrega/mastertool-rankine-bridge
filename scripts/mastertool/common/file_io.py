@@ -97,7 +97,7 @@ def new_export_dir(exports_root, project_slug):
     ensure_dir(path)
     try:
         write_text(os.path.join(path, SENTINEL_FILENAME),
-                  "created_by=mastertool-rankine-bridge\ncreated_at=%s\nslug=%s\n"
+                  "created_by=mastertool-ai-bridge\ncreated_at=%s\nslug=%s\n"
                   % (iso_now(), project_slug or ""))
     except Exception:
         pass  # sentinela e defesa extra; falha ao grava-la nao deve travar o export

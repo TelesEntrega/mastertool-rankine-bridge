@@ -125,7 +125,7 @@
         "program_calls": { "type": "array", "items": { "type": "string" } },
         "existing": {
           "type": "boolean",
-          "description": "A task JA EXISTE no template e deve ser REUSADA, nunca criada. `MainTask` do TemplateExemplo v1 e assim, e foi o que todas as execucoes reais fizeram (docs/38, docs/39, docs/41). Default false: quem nao diz nada esta pedindo para criar, e criar task nunca foi exercido contra o produto -- o plano sai como nao executavel, por lacuna nomeada, em vez de aceito em silencio."
+          "description": "A task JA EXISTE no template e deve ser REUSADA, nunca criada. `MainTask` do template e assim, e foi o que todas as execucoes reais fizeram (docs/38, docs/39, docs/41). Default false: quem nao diz nada esta pedindo para criar, e criar task nunca foi exercido contra o produto -- o plano sai como nao executavel, por lacuna nomeada, em vez de aceito em silencio."
         }
       }
     },

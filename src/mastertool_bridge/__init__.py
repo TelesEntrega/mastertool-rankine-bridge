@@ -1,4 +1,4 @@
-"""mastertool_bridge — camada externa (Python 3.11+) do mastertool-rankine-bridge.
+"""mastertool_bridge — camada externa (Python 3.11+) do mastertool-ai-bridge.
 
 Lê e analisa exports gerados pelos scripts IronPython do MasterTool.
 Nunca acessa o MasterTool nem o CLP diretamente.

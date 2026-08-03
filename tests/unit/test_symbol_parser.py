@@ -47,7 +47,7 @@ def test_extends_in_out_and_persistent(fixtures_dir):
     inout = symbol.variables_in_block("VAR_IN_OUT")
     assert [v.name for v in inout] == ["stComando"]
     persistent = [v for v in symbol.variables if v.is_persistent]
-    assert [v.name for v in persistent] == ["iPastaAtuadoresExemplo"]
+    assert [v.name for v in persistent] == ["iAcionamentos"]
 
 
 def test_unparseable_line_registers_uncertainty():

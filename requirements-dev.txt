@@ -15,3 +15,9 @@ pytest-asyncio>=1.0,<2
 # O teto `<2` esta medido, nao suposto: 2.0.0 removeu `mcp.server.fastmcp`, que
 # `mcp_server.py` importa. Ver a nota longa em `pyproject.toml`.
 mcp>=1.0,<2
+# Medicao de cobertura (fase P0.2). Declarado aqui porque a suite passou a
+# oferecer o alvo `--cov`: uma dependencia que so existe na maquina de quem a
+# instalou nao existe. NAO ha gate de porcentagem associado -- a fase mede a
+# baseline e publica o numero; qualquer limiar e decisao posterior, tomada
+# sobre o que foi medido e nao sobre o que se gostaria de ter.
+pytest-cov>=5.0

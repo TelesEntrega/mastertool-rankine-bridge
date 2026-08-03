@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "mastertool-bridge/project-manifest.schema.json",
-  "title": "Manifesto de export do mastertool-rankine-bridge",
+  "title": "Manifesto de export do mastertool-ai-bridge",
   "type": "object",
   "required": ["schema_version", "tool_version", "mode", "project", "statistics", "safety"],
   "properties": {

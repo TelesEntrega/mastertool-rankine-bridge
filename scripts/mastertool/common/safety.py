@@ -443,6 +443,29 @@ PHASE_ALLOWED_OPERATIONS = {
                                        "set:kind_of_task", "set:interval",
                                        "set:interval_unit", "set:priority"]),
     "W9_VERIFY_BUILD": frozenset(["build"]),
+    # W10 -- ALTERACAO DE OBJETO PREEXISTENTE (fase R2).
+    #
+    # A allowlist e a MENOR possivel: `replace` e `save_as`. Nenhum `create_*`
+    # entra, e a ausencia e o desenho -- W10 prova que o sistema ALTERA, e um
+    # `create` na mesma allowlist deixaria a prova ambigua entre "alterou" e
+    # "criou por cima".
+    #
+    # E a mesma allowlist de W1_3A/W1_3B, que alteraram texto de objeto que a
+    # propria sessao havia criado. A diferenca de W10 nao esta nos verbos: esta
+    # em o alvo ser PREEXISTENTE, e no executor conferir o hash anterior MEDIDO
+    # antes de sobrescrever.
+    "W10_EDIT_EXISTING": frozenset(["replace", "save_as"]),
+    "W10_VERIFY_BUILD": frozenset(["build"]),
+    # REVERSAO (fase R2, quarta palavra do gate). Fases PROPRIAS, e nao reuso
+    # das de cima: desfazer nao e um detalhe da mesma sessao que fez. Uma
+    # reversao autorizada pela fase da alteracao poderia rodar dentro dela, e
+    # entao "alterou e desfez" e "alterou" seriam indistinguiveis no registro.
+    #
+    # A allowlist e IDENTICA a de W10_EDIT_EXISTING de proposito: a reversao
+    # usa o MESMO mecanismo, com o MESMO rigor. Reverter por um caminho mais
+    # curto seria provar reversibilidade de outra coisa.
+    "W10_REVERT": frozenset(["replace", "save_as"]),
+    "W10_REVERT_VERIFY_BUILD": frozenset(["build"]),
 }
 
 try:

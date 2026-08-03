@@ -1,0 +1,56 @@
+# =============================================================================
+# CI do NUCLEO publico.
+#
+# Este pipeline e inteiramente offline: ele NUNCA abre o MasterTool e nunca
+# executa um probe contra o produto (esses exigem IronPython 2.7 DENTRO do
+# MasterTool e supervisao humana visivel). Nenhum passo abaixo lanca
+# `MT9000.exe`, nem tem permissao para isso.
+#
+# Este repositorio contem o NUCLEO da ponte -- biblioteca, schemas e os testes
+# offline dela. Os instrumentos de campo (probes IronPython, wrappers
+# PowerShell) e os registros de execucao ficam na arvore interna, e por isso a
+# CI daqui nao tem passo de higiene nem de sanitizacao: nao ha o que sanitizar
+# num pacote que so recebe codigo sem identificador.
+#
+# Por que so windows-latest: o Windows e a plataforma-alvo do projeto, e ha
+# testes que comparam literais de caminho no formato Windows. Um job
+# `ubuntu-latest` para as camadas puramente Python e trabalho futuro,
+# condicionado a rodar a suite inteira numa maquina Linux primeiro -- ela nao
+# foi testada la, e por isso o job nao e declarado aqui.
+# =============================================================================
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias de desenvolvimento
+        run: pip install -r requirements-dev.txt
+
+      - name: Instalar o pacote
+        run: pip install -e .
+
+      - name: Rodar a suite de testes (a partir da raiz do repositorio)
+        run: pytest
+
+      - name: Empacotar (build)
+        # `build` e ferramenta de CI apenas -- decisao deliberada de nao
+        # declara-la em requirements-dev.txt para nao acrescentar dependencia
+        # de desenvolvimento que ninguem usa fora do pipeline.
+        run: |
+          pip install build
+          python -m build

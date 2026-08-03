@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mastertool-bridge"
-version = "0.1.0"
-description = "Ponte somente leitura entre MasterTool IEC XE 3.63 e ferramentas Python/Git/IA"
+version = "0.2.0a1"
+description = "Ponte offline entre MasterTool (IEC XE 3.63/3.70 e MasterTool X 4.1) e Python 3: extracao, indexacao IEC 61131-3, consultas deterministicas, servidor MCP e autoria controlada de projeto sob aprovacao humana"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -43,3 +43,23 @@ mastertool_bridge = ["schemas/*.json"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+
+[tool.coverage.run]
+branch = true
+# Escopo DECLARADO, e estreito de proposito: so a biblioteca CPython 3.
+#
+# `scripts/mastertool/` roda em IronPython 2.7 DENTRO do MasterTool. Parte
+# desses modulos e importada pelos testes por `importlib` para verificacao
+# estatica (AST, vocabulario, precondicao), o que produziria um numero de
+# cobertura real para linhas que nunca executam fora do produto -- e um
+# percentual global misturando as duas camadas descreveria mal as duas. A
+# cobertura desses arquivos e medida por outro meio (teste de AST, dublagem de
+# API e execucao de campo), e entra no relatorio como categoria propria, nao
+# como porcentagem somada a esta.
+source = ["mastertool_bridge"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# Sem `fail_under`. A fase P0.2 mede a baseline; impor limiar antes de saber o
+# numero seria escolher a meta pela expectativa em vez de pela medicao.
