@@ -76,7 +76,7 @@ def _render(**kwargs):
     return render_qualification_report(
         _lote(**kwargs), generated_at="2026-08-02T07:15",
         qualification_id="R1-W7-W9",
-        template_profile="mastertool-x-4.1.0.11-tmf-v1-io-v1",
+        template_profile="mastertool-x-4.1.0.11-tpl-v1-io-v1",
         product_version="MasterTool X 4.1.0.11")
 
 

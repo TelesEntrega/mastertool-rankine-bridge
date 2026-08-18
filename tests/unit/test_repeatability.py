@@ -247,7 +247,7 @@ def test_a_referencia_e_equivalente_a_si_mesma_por_definicao(tmp_path):
 def _pedido(tmp_path, runs=3, **kwargs):
     base = dict(
         qualification_id="R1-W7-W9",
-        template_profile="mastertool-x-4.1.0.11-tmf-v1-io-v1",
+        template_profile="mastertool-x-4.1.0.11-tpl-v1-io-v1",
         source_project_sha256=SHA_ORIGEM,
         specification="spec-fabrica.json",
         runs=runs,
