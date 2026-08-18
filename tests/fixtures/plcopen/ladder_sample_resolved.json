@@ -1,0 +1,581 @@
+{
+  "accesses": [
+    {
+      "access_id": "FB_EXEMPLO|net:0000|el:11|ENTRADA|read",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR_INPUT",
+      "declared_type": "BOOL",
+      "evidence": {
+        "basis": "element_value_text",
+        "detail": {
+          "edge": "none",
+          "negated": true,
+          "storage": "none"
+        },
+        "element_id": "el:11",
+        "element_kind": "contact",
+        "network_id": "net:0000",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "read",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "pou_parameter",
+      "source_language": "LD",
+      "symbol_text": "ENTRADA",
+      "unresolved_category": null
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0000|el:6|ESTADO|read",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR",
+      "declared_type": "INT",
+      "evidence": {
+        "basis": "lexical_identifier",
+        "detail": {
+          "text_class": "identifier"
+        },
+        "element_id": "el:6",
+        "element_kind": "in_variable",
+        "network_id": "net:0000",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "read",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "local_variable",
+      "source_language": "LD",
+      "symbol_text": "ESTADO",
+      "unresolved_category": null
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0000|el:8|ENTRADA|read",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR_INPUT",
+      "declared_type": "BOOL",
+      "evidence": {
+        "basis": "element_value_text",
+        "detail": {
+          "edge": "none",
+          "negated": false,
+          "storage": "none"
+        },
+        "element_id": "el:8",
+        "element_kind": "contact",
+        "network_id": "net:0000",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "read",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "pou_parameter",
+      "source_language": "LD",
+      "symbol_text": "ENTRADA",
+      "unresolved_category": null
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0001|el:18|SAIDA_A|write",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR_OUTPUT",
+      "declared_type": "BOOL",
+      "evidence": {
+        "basis": "element_value_text",
+        "detail": {
+          "edge": "none",
+          "negated": false,
+          "storage": "reset"
+        },
+        "element_id": "el:18",
+        "element_kind": "coil",
+        "network_id": "net:0001",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "write",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "pou_parameter",
+      "source_language": "LD",
+      "symbol_text": "SAIDA_A",
+      "unresolved_category": null
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0002|el:24|SAIDA_B|write",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR_OUTPUT",
+      "declared_type": "BOOL",
+      "evidence": {
+        "basis": "element_value_text",
+        "detail": {
+          "edge": "none",
+          "negated": false,
+          "storage": "none"
+        },
+        "element_id": "el:24",
+        "element_kind": "coil",
+        "network_id": "net:0002",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "write",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "pou_parameter",
+      "source_language": "LD",
+      "symbol_text": "SAIDA_B",
+      "unresolved_category": null
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0002|el:26|TEMPORIZADOR_0|read_write",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": null,
+      "declared_type": null,
+      "evidence": {
+        "basis": "declared_instance",
+        "detail": {
+          "call_type": "functionblock",
+          "type_name": "TON"
+        },
+        "element_id": "el:26",
+        "element_kind": "block",
+        "network_id": "net:0002",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "read_write",
+      "resolution_status": "unresolved",
+      "resolved_symbol_id": null,
+      "rule_applied": "none",
+      "source_language": "LD",
+      "symbol_text": "TEMPORIZADOR_0",
+      "unresolved_category": "symbol_not_found"
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0002|el:27|TEMPO|read",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR_INPUT",
+      "declared_type": "TIME",
+      "evidence": {
+        "basis": "lexical_identifier",
+        "detail": {
+          "text_class": "identifier"
+        },
+        "element_id": "el:27",
+        "element_kind": "in_variable",
+        "network_id": "net:0002",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "read",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "pou_parameter",
+      "source_language": "LD",
+      "symbol_text": "TEMPO",
+      "unresolved_category": null
+    },
+    {
+      "access_id": "FB_EXEMPLO|net:0002|el:34|SAIDA_A|write",
+      "address": null,
+      "candidates": [],
+      "declaration_scope": "VAR_OUTPUT",
+      "declared_type": "BOOL",
+      "evidence": {
+        "basis": "element_value_text",
+        "detail": {
+          "edge": "none",
+          "negated": true,
+          "storage": "none"
+        },
+        "element_id": "el:34",
+        "element_kind": "coil",
+        "network_id": "net:0002",
+        "pou": "FB_EXEMPLO",
+        "supporting": []
+      },
+      "mode": "write",
+      "resolution_status": "resolved",
+      "resolved_symbol_id": "ld:FB_EXEMPLO",
+      "rule_applied": "pou_parameter",
+      "source_language": "LD",
+      "symbol_text": "SAIDA_A",
+      "unresolved_category": null
+    }
+  ],
+  "calls": [
+    {
+      "call_id": "FB_EXEMPLO|net:0000|el:10",
+      "call_kind": "operator",
+      "evidence": {
+        "element_id": "el:10",
+        "network_id": "net:0000"
+      },
+      "instance_resolution_status": null,
+      "instance_symbol_id": null,
+      "instance_symbol_text": null,
+      "pins": [
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:11",
+              "source_element_kind": "contact"
+            },
+            "element_id": "el:10",
+            "network_id": "net:0000",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0000|net:0000|11|output|net:0000|10|EN"
+            ]
+          },
+          "formal_parameter": "EN",
+          "status": "power_flow"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": null,
+          "formal_parameter": "Out1",
+          "status": "unbound"
+        }
+      ],
+      "resolution_status": "not_applicable",
+      "resolved_target_id": null,
+      "source_language": "LD",
+      "target_text": "MOVE",
+      "unresolved_category": null
+    },
+    {
+      "call_id": "FB_EXEMPLO|net:0000|el:4",
+      "call_kind": "operator",
+      "evidence": {
+        "element_id": "el:4",
+        "network_id": "net:0000"
+      },
+      "instance_resolution_status": null,
+      "instance_symbol_id": null,
+      "instance_symbol_text": null,
+      "pins": [
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:8",
+              "source_element_kind": "contact"
+            },
+            "element_id": "el:4",
+            "network_id": "net:0000",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0000|net:0000|8|output|net:0000|4|EN"
+            ]
+          },
+          "formal_parameter": "EN",
+          "status": "power_flow"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": null,
+          "formal_parameter": "Out1",
+          "status": "unbound"
+        }
+      ],
+      "resolution_status": "not_applicable",
+      "resolved_target_id": null,
+      "source_language": "LD",
+      "target_text": "MOVE",
+      "unresolved_category": null
+    },
+    {
+      "call_id": "FB_EXEMPLO|net:0000|el:5",
+      "call_kind": "operator",
+      "evidence": {
+        "element_id": "el:5",
+        "network_id": "net:0000"
+      },
+      "instance_resolution_status": null,
+      "instance_symbol_id": null,
+      "instance_symbol_text": null,
+      "pins": [
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": null,
+          "formal_parameter": "EN",
+          "status": "unbound"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": "ESTADO",
+          "direction": "input",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "formal_parameter": "In2",
+              "source_element_id": "el:6"
+            },
+            "element_id": "el:5",
+            "network_id": "net:0000",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0000|net:0000|6|output|net:0000|5|In2"
+            ]
+          },
+          "formal_parameter": "In2",
+          "status": "bound_symbol"
+        },
+        {
+          "bound_literal": "0",
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:7"
+            },
+            "element_id": "el:5",
+            "network_id": "net:0000",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0000|net:0000|7|output|net:0000|5|In3"
+            ]
+          },
+          "formal_parameter": "In3",
+          "status": "bound_literal"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:8",
+              "source_element_kind": "contact"
+            },
+            "element_id": "el:5",
+            "network_id": "net:0000",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0000|net:0000|5|Out1|net:0000|8|input"
+            ]
+          },
+          "formal_parameter": "Out1",
+          "status": "power_flow"
+        }
+      ],
+      "resolution_status": "not_applicable",
+      "resolved_target_id": null,
+      "source_language": "LD",
+      "target_text": "EQ",
+      "unresolved_category": null
+    },
+    {
+      "call_id": "FB_EXEMPLO|net:0001|el:15",
+      "call_kind": "operator",
+      "evidence": {
+        "element_id": "el:15",
+        "network_id": "net:0001"
+      },
+      "instance_resolution_status": null,
+      "instance_symbol_id": null,
+      "instance_symbol_text": null,
+      "pins": [
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": null,
+          "formal_parameter": "EN",
+          "status": "unbound"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:18",
+              "source_element_kind": "coil"
+            },
+            "element_id": "el:15",
+            "network_id": "net:0001",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0001|net:0001|15|Out1|net:0001|18|input"
+            ]
+          },
+          "formal_parameter": "Out1",
+          "status": "power_flow"
+        }
+      ],
+      "resolution_status": "not_applicable",
+      "resolved_target_id": null,
+      "source_language": "LD",
+      "target_text": "EQ",
+      "unresolved_category": null
+    },
+    {
+      "call_id": "FB_EXEMPLO|net:0002|el:21",
+      "call_kind": "operator",
+      "evidence": {
+        "element_id": "el:21",
+        "network_id": "net:0002"
+      },
+      "instance_resolution_status": null,
+      "instance_symbol_id": null,
+      "instance_symbol_text": null,
+      "pins": [
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": null,
+          "formal_parameter": "EN",
+          "status": "unbound"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:24",
+              "source_element_kind": "coil"
+            },
+            "element_id": "el:21",
+            "network_id": "net:0002",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0002|net:0002|21|Out1|net:0002|24|input"
+            ]
+          },
+          "formal_parameter": "Out1",
+          "status": "power_flow"
+        }
+      ],
+      "resolution_status": "not_applicable",
+      "resolved_target_id": null,
+      "source_language": "LD",
+      "target_text": "EQ",
+      "unresolved_category": null
+    },
+    {
+      "call_id": "FB_EXEMPLO|net:0002|el:26",
+      "call_kind": "functionblock",
+      "evidence": {
+        "element_id": "el:26",
+        "network_id": "net:0002"
+      },
+      "instance_resolution_status": "unresolved",
+      "instance_symbol_id": null,
+      "instance_symbol_text": "TEMPORIZADOR_0",
+      "pins": [
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "input",
+          "evidence": null,
+          "formal_parameter": "IN",
+          "status": "unbound"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": "TEMPO",
+          "direction": "input",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "formal_parameter": "PT",
+              "source_element_id": "el:27"
+            },
+            "element_id": "el:26",
+            "network_id": "net:0002",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0002|net:0002|27|output|net:0002|26|PT"
+            ]
+          },
+          "formal_parameter": "PT",
+          "status": "bound_symbol"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": {
+            "basis": "resolved_topology_edge",
+            "detail": {
+              "source_element_id": "el:34",
+              "source_element_kind": "coil"
+            },
+            "element_id": "el:26",
+            "network_id": "net:0002",
+            "pou": "FB_EXEMPLO",
+            "supporting": [
+              "net:0002|net:0002|26|Q|net:0002|34|input"
+            ]
+          },
+          "formal_parameter": "Q",
+          "status": "power_flow"
+        },
+        {
+          "bound_literal": null,
+          "bound_symbol": null,
+          "direction": "output",
+          "evidence": null,
+          "formal_parameter": "ET",
+          "status": "unbound"
+        }
+      ],
+      "resolution_status": "unresolved",
+      "resolved_target_id": null,
+      "source_language": "LD",
+      "target_text": "TON",
+      "unresolved_category": "symbol_not_found"
+    }
+  ],
+  "diagnostics": [],
+  "model_kind": "resolved_ladder_semantics",
+  "pou": "FB_EXEMPLO",
+  "schema_version": 1,
+  "unresolved": [
+    {
+      "access_id": "FB_EXEMPLO|net:0002|el:26|TEMPORIZADOR_0|read_write",
+      "candidates": [],
+      "category": "symbol_not_found",
+      "network_id": "net:0002",
+      "symbol_text": "TEMPORIZADOR_0"
+    },
+    {
+      "call_id": "FB_EXEMPLO|net:0002|el:26",
+      "candidates": [],
+      "category": "symbol_not_found",
+      "detail": "call_target",
+      "network_id": "net:0002",
+      "symbol_text": "TON"
+    }
+  ]
+}

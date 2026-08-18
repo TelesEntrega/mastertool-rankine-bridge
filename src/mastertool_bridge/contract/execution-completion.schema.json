@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rankinesystems.com.br/contract/execution-completion-v1.json",
+  "title": "Execution Completion v1",
+  "description": "O VEREDITO de uma sessao de escrita. O host decide por este arquivo, e NAO pelo exit code do launcher -- que nao decide nada, porque o MasterTool encerra 0 mesmo quando o probe morreu antes de comecar. Artefato ausente e falha de artefato, nunca sucesso silencioso.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "script",
+    "status",
+    "exit_code",
+    "is_success",
+    "errors",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "description": "STRING. Familia dos artefatos de probe (docs/19 secao 7)."
+    },
+    "script": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": [
+        "plan_executed",
+        "precondition_failed",
+        "plan_not_executable",
+        "unknown_operation",
+        "operation_not_implemented",
+        "text_hash_mismatch",
+        "before_hash_mismatch",
+        "text_missing",
+        "target_not_found",
+        "mutation_failed",
+        "save_failed",
+        "fatal"
+      ],
+      "description": "Vocabulario FECHADO, identico ao `ALL_STATUSES` do probe 46. Status desconhecido recusa: um veredito que ninguem sabe interpretar nao pode ser tratado como aprovacao. `before_hash_mismatch` tem entrada propria de proposito -- 'o objeto mudou desde a medicao' e diferente de 'a escrita falhou'."
+    },
+    "exit_code": { "type": "integer" },
+    "is_success": {
+      "type": "boolean",
+      "description": "Derivado do status, nunca independente dele. Existe para que o leitor nao precise conhecer o vocabulario inteiro para saber se deu certo."
+    },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lista vazia e 'nenhum erro'. Campo ausente seria 'nao medido', e por isso ele e obrigatorio."
+    },
+    "gap_notes": { "type": "array", "items": { "type": "string" } },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "phase": { "type": ["string", "null"] },
+    "plan_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "spec_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "opened_project": { "type": ["string", "null"] },
+    "output_project_path": { "type": ["string", "null"] },
+    "output_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Hash da SAIDA. E o que amarra a proxima etapa (build, verificacao) a este mesmo arquivo -- sem ele, o build poderia rodar sobre outro projeto e ninguem notaria."
+    },
+    "created_objects": {
+      "type": "array",
+      "description": "Objetos criados nesta execucao. ACHADO em A0.3: a primeira versao deste schema dizia `items: string`, derivada de uma run W10 -- que ALTERA e nao cria, e cujo `created_objects` e uma lista VAZIA. Amostra vazia nao ensina forma. As 131 entradas reais dos tres lotes sao objetos com `kind`, `name` e `sequence`, mais `dut_kind` ou `return_type` conforme a familia. Mesma classe de erro do vazamento de publicacao: tratar uma amostra como o conjunto.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "name", "sequence"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "sequence": { "type": "integer", "minimum": 1 },
+          "dut_kind": {
+            "type": ["string", "null"],
+            "description": "So em DUT. `STRUCT` e `ENUM` nascem com o MESMO type_guid (docs/46): o tipo nao distingue subtipo, e por isso o subtipo viaja aqui."
+          },
+          "return_type": {
+            "type": ["string", "null"],
+            "description": "So em FUNCTION."
+          }
+        }
+      }
+    },
+    "operations_requested": { "type": "array", "items": { "type": "string" } },
+    "operations_required": { "type": "array", "items": { "type": "string" } },
+    "operations_authorized": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "O que a FASE autorizou. Comparar com `operations_required` e o que revela plano pedindo mais do que a fase permite."
+    },
+    "proving_operations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Operacoes rodando em EXECUCAO DE PROVA -- implementadas e ainda nao provadas em campo. A lista existe por um ovo-e-galinha real: o planner nao emite plano executavel com operacao nao provada, e sem executar nao ha prova."
+    },
+    "steps_total": { "type": "integer", "minimum": 0 },
+    "steps_executed": { "type": "integer", "minimum": 0 },
+    "steps_delegated": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Passos que este probe NAO executa por decisao de arquitetura: `reopen`, `build` e `verify` sao etapa propria, com fase e abertura proprias (docs/32 secao 3). Delegado nao e falho."
+    }
+  }
+}

@@ -18,3 +18,19 @@ tests/indexer/fixtures/sample_export/** text eol=lf
 # export real do MasterTool, e a comparação precisa medir diferença de
 # conteúdo, nunca conversão de fim de linha feita pelo Git.
 tests/fixtures/plcopen/** text eol=lf
+
+# Os SCHEMAS do contrato operacional entraram no fingerprint em A0.3: o
+# `core_contract_sha256` inclui o sha256 de cada arquivo, e ele e o vinculo
+# NORMATIVO da capability attestation -- divergiu, o documento e recusado por
+# inteiro.
+#
+# Mesma armadilha das fixtures acima, num lugar novo. Com `core.autocrlf=true`
+# o checkout converte LF para CRLF, cada schema ganha um byte por linha, o
+# fingerprint muda, e TODA attestation cai com `core_contract_mismatch`. As
+# treze capacidades voltam para `discovered` e nenhum plano e executavel.
+#
+# Encontrado em 2026-08-03 ao preparar A0.4 numa worktree: mesmo commit, dois
+# fingerprints (`def374438ff6` na arvore principal, `59628a69c440` na
+# worktree). Os blobs no git ja sao LF -- o que faltava era garantir que o
+# checkout tambem seja, em qualquer plataforma.
+src/mastertool_bridge/contract/*.schema.json text eol=lf

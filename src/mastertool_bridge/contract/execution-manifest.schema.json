@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rankinesystems.com.br/contract/execution-manifest-v1.json",
+  "title": "Execution Manifest v1",
+  "description": "O que uma sessao de ESCRITA registra sobre si mesma: sob qual fase rodou, qual plano executou, de qual spec ele veio, como o container foi resolvido e o que aconteceu passo a passo. Gravado pelo executor DENTRO do MasterTool (IronPython 2.7), lido pelo host depois que a janela fecha. Derivado de artefatos reais, nao inventado.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "script",
+    "phase",
+    "plan_path",
+    "plan_sha256",
+    "spec_path",
+    "spec_sha256",
+    "journal"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "description": "STRING, e nao inteiro. Familia dos artefatos de probe/export (docs/19 secao 7). A camada `src/` usa inteiro; exigir inteiro aqui recusaria todo artefato de campo ja produzido, inclusive os que sustentam R1 e R2."
+    },
+    "script": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Qual probe gravou. Um artefato que nao diz quem o produziu nao e auditavel."
+    },
+    "phase": {
+      "type": ["string", "null"],
+      "description": "A fase de escrita ATIVA no momento da execucao. `null` quando o probe morreu antes de le-la -- e `null` NAO significa 'nenhuma fase', significa 'nao medido'."
+    },
+    "plan_path": { "type": ["string", "null"] },
+    "plan_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Hash do plano EXECUTADO. E ele, e nao o caminho, que amarra a execucao ao que foi planejado: caminho e reutilizavel, hash nao."
+    },
+    "spec_path": { "type": ["string", "null"] },
+    "spec_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "container_selection": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Como o container foi resolvido por nome + type_guid. ACHADO do piloto N=3 de 2026-08-02: as tres runs recusaram com '1 no ilegivel' e o artefato nao dizia QUAL no -- o diagnostico existia e morria com o processo. Persistido desde entao."
+    },
+    "journal": {
+      "type": "array",
+      "description": "Passo a passo do que a sessao fez. Vazio e um journal vazio, nao a ausencia de um: uma execucao sem journal nao e auditavel de forma nenhuma, e por isso o campo e obrigatorio.",
+      "items": { "type": "object" }
+    }
+  }
+}

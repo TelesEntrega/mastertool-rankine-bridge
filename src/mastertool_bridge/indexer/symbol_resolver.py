@@ -244,6 +244,63 @@ def resolve_alias_target(
     return current
 
 
+# As categorias de POU que podem ser ALVO de uma chamada, na ordem em que são
+# tentadas. A ordem é a mesma da precedência de identificadores: para no
+# primeiro nível com candidato, e 2+ candidatos no MESMO nível é `ambiguous` —
+# nunca desce de nível nem escolhe o primeiro nome encontrado.
+CALLABLE_POU_KINDS = ("FUNCTION_BLOCK", "FUNCTION", "PROGRAM")
+
+_CALLABLE_INDEX_ATTR = {
+    "FUNCTION_BLOCK": ("function_blocks_by_name", "function_block_direct"),
+    "FUNCTION": ("functions_by_name", "function_direct"),
+    "PROGRAM": ("programs_by_name", "program_direct"),
+}
+
+
+def resolve_callable_target(
+    name: str,
+    index: ProjectSymbolIndex,
+    *,
+    kinds: tuple[str, ...] = CALLABLE_POU_KINDS,
+) -> ResolvedSymbolRef:
+    """Resolve um NOME de alvo de chamada contra as categorias chamáveis.
+
+    Esta é a operação COMPARTILHADA entre ST e Ladder, e existe por um defeito
+    medido: `ladder_resolution` procurava o alvo apenas em
+    `function_blocks_by_name`, então uma chamada a PROGRAM — construção normal
+    do dialeto CODESYS, e já resolvida pelo lado ST — saía como
+    `symbol_not_found` mesmo com a POU presente no índice. Duas implementações
+    da mesma pergunta divergiram, que é o defeito que o próprio
+    `ladder_resolution` declara ser o pior deste projeto.
+
+    `kinds` existe porque as duas linguagens não admitem os mesmos alvos, e
+    isso é dialeto e não divergência: em ST um FUNCTION_BLOCK só é chamado
+    através de uma variável de instância declarada (o chamador passa
+    `("FUNCTION", "PROGRAM")` depois de tratar a instância), enquanto no Ladder
+    o bloco desenhado nomeia o próprio TIPO. O que precisa ser idêntico — a
+    ordem das categorias, a recusa a adivinhar e o tratamento de ambiguidade —
+    é o que este corpo faz uma vez só.
+
+    NÃO é uma segunda precedência: nenhum nível novo é criado aqui, e a busca
+    é por igualdade exata de nome contra os índices que `ProjectSymbolIndex` já
+    monta. Nome não encontrado volta `unresolved` — classificar isso como
+    ausência de artefato é decisão de quem consome, com evidência do corpus.
+    """
+    for kind in kinds:
+        atributo, regra = _CALLABLE_INDEX_ATTR[kind]
+        candidatos = getattr(index, atributo).get(name, [])
+        if len(candidatos) == 1:
+            return ResolvedSymbolRef(
+                state="resolved", rule_applied=regra,
+                resolved_symbol=candidatos[0].node_id)
+        if len(candidatos) > 1:
+            return ResolvedSymbolRef(
+                state="ambiguous", rule_applied=regra,
+                candidates=[s.node_id for s in candidatos],
+                message=("mais de um(a) %s com o nome %r" % (kind, name)))
+    return ResolvedSymbolRef(state="unresolved", rule_applied="none")
+
+
 def owner_node_id_from_node_id(node_id: str) -> str:
     """Extrai o node_id do PouSymbol dono a partir do node_id de uma
     Reference/Call/Statement (formato "<owner_node_id>#stmtN"). Se não

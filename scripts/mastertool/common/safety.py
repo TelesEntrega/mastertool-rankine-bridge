@@ -63,9 +63,30 @@ MASTERTOOL_MUTATING_OPERATIONS = frozenset([
     "create_gvl", "create_pou", "create_program", "create_function",
     "create_function_block", "create_dut", "create_interface",
     "create_persistentvars", "create_folder", "create_task",
+    # R3.1B (docs/87). MEMBRO de POU -- catalogado por reflexao em
+    # docs/api secao IScriptIecLanguageMemberContainer. Os IRMAOS
+    # (`create_property`, `create_action`, `create_transition`) ficam FORA de
+    # proposito: estar na mesma interface nao os torna escopo, e uma allowlist
+    # que cresce por vizinhanca deixa de descrever o que esta em uso.
+    "create_method",
     "create_task_configuration", "create_boot_application",
     # conteudo textual
-    "replace", "replace_line", "insert", "remove", "append",
+    #
+    # `remove` FOI DIVIDIDO (contrato docs/87 secao 4). O nome nu existia aqui
+    # como operacao de TEXTO -- `IScriptTextDocument.remove(offset, length)`
+    # apaga caracteres. A reflexao do R3.1B achou
+    # `IScriptObject.remove()`, que apaga O OBJETO DA ARVORE. Mesmo nome, mesmo
+    # registro, consequencias incomparaveis: uma fase que autorizasse a
+    # primeira autorizaria a segunda, porque a allowlist e por NOME.
+    #
+    # Falso NEGATIVO no gate, que e o lado caro -- e o inverso do achado ja
+    # documentado sobre `insert`/`append`/`remove` existirem em
+    # `IScriptTextDocument` e em `list`/`sys.path`, onde o risco era falso
+    # positivo na guarda.
+    "replace", "replace_line", "insert", "append",
+    "text:remove",
+    # estrutura da arvore -- receptor `IScriptObject`, aridade zero
+    "object:remove",
     # persistencia
     "save", "save_as", "save_archive",
     # compilacao
@@ -82,6 +103,28 @@ MASTERTOOL_MUTATING_OPERATIONS = frozenset([
     "set_compilerversion_to_newest", "download_missing_libraries",
     "remove_library", "add_library",
 ])
+
+# Verbos cujo NOME NU deixou de ser identidade suficiente, e as identidades
+# qualificadas que os substituem (contrato docs/87 secao 4).
+#
+# A REGRA E GERAL, e nao peculiaridade do `remove`:
+#
+#   Quando um mesmo nome de metodo existe em superficies com efeitos
+#   semanticamente diferentes, o nome nu nao constitui identidade suficiente
+#   para autorizacao.
+#
+# Este mapa existe para que o nome nu produza a mensagem CERTA -- "escolha qual
+# das duas" -- em vez de cair no "nome desconhecido" generico, que mandaria o
+# leitor catalogar algo que ja esta catalogado duas vezes.
+#
+# DIVIDA NOMEADA, fora do escopo do R3.1B: `add`, `rename` e `move` tambem sao
+# verbos genericos no registro, e `IScriptObject` expoe `rename` e `move`. Nao
+# foi medido se colidem com outra superficie de efeito diferente. Revisa-los e
+# slice proprio; ampliar aqui por precaucao faria a divisao crescer sem
+# medicao, que e o que este projeto recusa.
+MASTERTOOL_AMBIGUOUS_BARE_VERBS = {
+    "remove": ("text:remove", "object:remove"),
+}
 
 # Registro LITERAL das ESCRITAS DE PROPRIEDADE catalogadas.
 #
@@ -120,6 +163,22 @@ MASTERTOOL_PROPERTY_WRITES = frozenset([
 # as operacoes -- uma por uma.
 #
 # NENHUMA FASE ATIVA.
+#
+# R3_1B_METHOD_REVERT foi ABERTA e ENCERRADA em 2026-08-17. O ensaio foi
+# DISCRIMINANTE: removeu `Condicao` primeiro e reabriu, medindo que
+# `IniciarPasso` SOBREVIVEU -- 44 nos -> 43, com o owner e os irmaos intactos.
+# Depois removeu `IniciarPasso`, e o FB ficou com zero membros (43 -> 42).
+# `IScriptObject.remove()` age sobre o MEMBRO EXATO, e persiste a save/reopen.
+#
+# R3_1B_METHOD_PROOF e R3_1B_VERIFY_BUILD foram ABERTAS e ENCERRADAS em
+# 2026-08-17: a PRIMEIRA criacao de MEMBRO contra o produto. `create_method`
+# criou `IniciarPasso` e `Condicao` dentro de `FB_Diagnostico`, o texto dos dois
+# foi escrito, a saida foi salva, reaberta, compilada SEM aviso de convencao do
+# fabricante, e verificada -- 4 de 4 objetos, `factory_output_verified`.
+# Template intacto.
+#
+# R3_1B_METHOD_REVERT continua no mapa e NUNCA foi aberta: a reversao esta
+# implementada e NAO esta provada em campo.
 #
 # W9 -- a primeira escrita de propriedade -- foi EXECUTADA e ENCERRADA
 # (docs/49, run-037). As quatro escritas foram relidas do objeto e depois do
@@ -417,6 +476,29 @@ PHASE_ALLOWED_OPERATIONS = {
                                   "create_function_block", "create_function",
                                   "create_dut", "replace", "save_as"]),
     "W7_VERIFY_BUILD": frozenset(["build"]),
+    # R3.1B -- a PRIMEIRA criacao de MEMBRO contra o produto (docs/87).
+    #
+    # `create_method` esta `discovered`: API catalogada por reflexao sobre os
+    # assemblies do MT9000, nunca exercida. O planner e fail-closed em
+    # `field_proven` e nao emite plano executavel com ela -- e sem executar nao
+    # ha prova. A saida nao e bypass, e a FASE: esta allowlist LITERAL contem
+    # `create_method`, e isso E a decisao de "esta execucao existe para exercer
+    # esta operacao".
+    #
+    # Os outros quatro verbos ja sao `repeatable` e entram porque a spec do caso
+    # canonico precisa deles: o membro nao existe sem o owner, e o owner nao
+    # compila sem o DUT que ele referencia.
+    #
+    # `object:remove` NAO entra aqui. A reversao tem fase PROPRIA -- caminho
+    # mais curto provaria outra coisa, e fase compartilhada tornaria "criou e
+    # desfez" indistinguivel de "criou" (docs/54).
+    "R3_1B_METHOD_PROOF": frozenset(["create_dut", "create_function_block",
+                                     "create_method", "replace", "save_as"]),
+    "R3_1B_VERIFY_BUILD": frozenset(["build"]),
+    # A REVERSAO, em fase separada e com allowlist MINIMA: so o verbo que desfaz,
+    # mais a persistencia. Um `create_*` aqui deixaria "reverteu" e "reverteu e
+    # recriou" indistinguiveis no registro.
+    "R3_1B_METHOD_REVERT": frozenset(["object:remove", "save_as"]),
     # A cadeia que W6 nao teve: criar a task E dar-lhe o POU. ENCERRADA.
     #
     # `add` volta a uma allowlist depois de W2, e a razao pela qual ele saiu
@@ -526,6 +608,18 @@ def assert_controlled_write_allowed(operation):
             "Operacao '%s' e permanentemente proibida pela politica de "
             "seguranca (config/safety-policy.yaml)." % operation)
 
+    # NOME NU AMBIGUO. Cair no "nome desconhecido" generico abaixo esconderia a
+    # razao: quem escreveu `remove` nao errou de digitacao -- ele usou uma
+    # identidade que ja NAO E suficiente, e precisa saber qual das duas quer.
+    if operation in MASTERTOOL_AMBIGUOUS_BARE_VERBS:
+        raise SafetyError(
+            "Operacao '%s' e NOME NU AMBIGUO e nao constitui identidade "
+            "suficiente para autorizacao: o mesmo verbo existe em superficies "
+            "com efeitos semanticamente diferentes. Use uma das identidades "
+            "qualificadas: %s. Ver docs/87 secao 4."
+            % (operation,
+               ", ".join(sorted(MASTERTOOL_AMBIGUOUS_BARE_VERBS[operation]))))
+
     if operation not in MASTERTOOL_MUTATING_OPERATIONS:
         raise SafetyError(
             "Operacao '%s' nao esta no registro literal de operacoes mutaveis "
@@ -611,6 +705,133 @@ def assert_controlled_property_write_allowed(property_write):
             % (property_write, phase, ", ".join(sorted(allowed))))
 
     return True
+
+
+# =============================================================================
+# TERCEIRA PORTA: PROJECT_OPEN (contrato docs/84)
+# =============================================================================
+#
+# `projects.open` nao e mutante incondicional nem leitura comum. E
+# GUARDADA POR POTENCIAL DE MUTACAO: o que ela faz depende dos ARGUMENTOS, e
+# existe combinacao que altera o projeto do cliente em silencio.
+#
+# Poe-la em MASTERTOOL_MUTATING_OPERATIONS tornaria impossivel usar a forma
+# segura; deixa-la de fora deixaria escapar do gate uma chamada capaz de migrar
+# projeto. Por isso: registro proprio, porta propria -- pelo mesmo motivo que a
+# porta de propriedade e separada da de metodo. Cada classe de risco tem a sua,
+# e uma nao enxerga a outra.
+#
+# OS DEFAULTS DO PRODUTO SAO O RISCO, e estao medidos em
+# docs/api secao IScriptProjects (por ParameterInfo.RawDefaultValue):
+#
+#   primary        default True   -> tornaria o projeto PRIMARIO
+#   allow_readonly default False  -> abriria GRAVAVEL
+#   update_flags   default 1      -> NoUpdates (o unico que ja nasce seguro)
+#
+# DOIS DOS TRES tem default CONTRARIO ao uso seguro: `open(path)` sozinho torna
+# primario e abre gravavel.
+PROJECT_OPEN_SAFE_PRIMARY = False
+PROJECT_OPEN_SAFE_ALLOW_READONLY = True
+
+# `VersionUpdateFlags.NoUpdates`, valor 1.
+#
+# MEDIDO NA run-137: o inteiro NAO serve. O runtime recusa com
+# `expected VersionUpdateFlags, got int` -- o IronPython nao converte int para
+# enum .NET neste parametro. Uma versao anterior deste comentario dizia que
+# passar o literal evitava "dependencia de assembly desnecessaria"; a medicao
+# derrubou isso, e a chamada real usa `VersionUpdateFlags.NoUpdates` na forma
+# pontuada. Ela continua verificavel estaticamente -- e e mais auditavel que o
+# `1`, porque diz o proprio nome.
+#
+# A run-138 mediu as rotas de importacao: as quatro funcionam, inclusive
+# `from _3S.CoDeSys.VersionCompatibilityManager import VersionUpdateFlags` sem
+# `clr.AddReference` -- o assembly ja esta carregado no host. E `int(...)` do
+# membro devolve 1, igual a reflexao estatica.
+#
+# Este numero permanece aqui como o valor CANONICO contra o qual a porta
+# compara, porque o host offline (CPython, na suite) nao tem o enum.
+#
+# ATENCAO -- `Regular` (= 0) NAO e sinonimo de `NoUpdates` (= 1). Num enum
+# [Flags], zero e a AUSENCIA de bandeiras: o comportamento PADRAO do produto,
+# que inclui atualizar. Sao opostos com nomes que parecem sinonimos, e trocar um
+# pelo outro migraria o projeto do cliente sem nenhum aviso.
+PROJECT_OPEN_SAFE_UPDATE_FLAGS = 1
+PROJECT_OPEN_SAFE_UPDATE_FLAGS_NAME = "NoUpdates"
+
+
+def assert_project_open_allowed(primary, update_flags, allow_readonly):
+    """A TERCEIRA porta. Aceita EXCLUSIVAMENTE o perfil seguro.
+
+    Nao consulta `CONTROLLED_WRITE_PHASE` porque nao autoriza mutacao nenhuma:
+    ela autoriza a UNICA forma de `open` que o contrato docs/84 qualificou como
+    somente-leitura. Qualquer outro perfil e recusado aqui e permanece sem
+    contrato -- e recusar o que ninguem projetou e mais honesto que inventar uma
+    fase para autorizar.
+
+    Os tres argumentos sao obrigatorios e nenhum tem default nesta funcao, de
+    proposito: um default aqui reproduziria, do nosso lado, exatamente o defeito
+    que torna a chamada perigosa do lado do produto.
+    """
+    if primary is not PROJECT_OPEN_SAFE_PRIMARY:
+        raise SafetyError(
+            "PROJECT_OPEN recusado: primary=%r. O perfil seguro exige "
+            "primary=False -- o objetivo e usar o objeto RETORNADO, e nao "
+            "trocar um estado global instavel por outro criado por nos. "
+            "O default do produto e True (docs/84 secao 3)." % (primary,))
+
+    if allow_readonly is not PROJECT_OPEN_SAFE_ALLOW_READONLY:
+        raise SafetyError(
+            "PROJECT_OPEN recusado: allow_readonly=%r. O perfil seguro exige "
+            "True, e o default do produto e False -- omitir ou inverter abre o "
+            "projeto GRAVAVEL. Recusa do produto a abrir somente-leitura e "
+            "resultado nomeado ('project_open_readonly_refused'), NUNCA uma "
+            "segunda tentativa sem a bandeira." % (allow_readonly,))
+
+    # `update_flags` chega como membro de enum .NET no runtime e como inteiro na
+    # suite offline. `int(...)` cobre os dois -- a run-138 mediu que o membro
+    # converte para 1. Comparar sem converter daria falso NEGATIVO no IronPython.
+    #
+    # `bool` e recusado ANTES da conversao: em Python `int(True) == 1`, entao
+    # `update_flags=True` passaria por aqui como se fosse `NoUpdates`. Um
+    # booleano nesta posicao e quase certamente argumento trocado de lugar com
+    # `primary` ou `allow_readonly`, e deixar passar seria transformar um erro
+    # de digitacao em abertura autorizada.
+    if isinstance(update_flags, bool):
+        raise SafetyError(
+            "PROJECT_OPEN recusado: update_flags=%r e booleano. Esperado %s "
+            "(= %d). Booleano aqui costuma ser argumento trocado de posicao com "
+            "`primary` ou `allow_readonly`."
+            % (update_flags, PROJECT_OPEN_SAFE_UPDATE_FLAGS_NAME,
+               PROJECT_OPEN_SAFE_UPDATE_FLAGS))
+    try:
+        valor_flags = int(update_flags)
+    except (TypeError, ValueError):
+        raise SafetyError(
+            "PROJECT_OPEN recusado: update_flags=%r nao e conversivel para "
+            "inteiro. Esperado %s (= %d)."
+            % (update_flags, PROJECT_OPEN_SAFE_UPDATE_FLAGS_NAME,
+               PROJECT_OPEN_SAFE_UPDATE_FLAGS))
+
+    if valor_flags != PROJECT_OPEN_SAFE_UPDATE_FLAGS:
+        raise SafetyError(
+            "PROJECT_OPEN recusado: update_flags=%r (= %d). O perfil seguro "
+            "exige %s (= %d). Atencao: 'Regular' (= 0) NAO e 'nenhuma "
+            "atualizacao' -- num enum [Flags] zero e a ausencia de bandeiras, o "
+            "comportamento padrao do produto, que inclui atualizar."
+            % (update_flags, valor_flags, PROJECT_OPEN_SAFE_UPDATE_FLAGS_NAME,
+               PROJECT_OPEN_SAFE_UPDATE_FLAGS))
+
+    return True
+
+
+def project_open_safe_profile():
+    """O perfil, para manifesto e para quem monta a chamada."""
+    return {
+        "primary": PROJECT_OPEN_SAFE_PRIMARY,
+        "update_flags": PROJECT_OPEN_SAFE_UPDATE_FLAGS,
+        "update_flags_name": PROJECT_OPEN_SAFE_UPDATE_FLAGS_NAME,
+        "allow_readonly": PROJECT_OPEN_SAFE_ALLOW_READONLY,
+    }
 
 
 def controlled_write_summary():

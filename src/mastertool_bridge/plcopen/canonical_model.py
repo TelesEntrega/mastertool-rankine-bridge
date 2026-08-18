@@ -541,15 +541,33 @@ class InterfaceVariable:
     name: str | None
     group: str | None
     type_name: str | None = None
+    """Nome RESOLVÍVEL do tipo contra o índice do projeto: `BOOL` para
+    elementar, `TON` para `<derived name="TON"/>`, `None` quando o documento
+    não o carrega."""
+    type_kind: str | None = None
+    """FORMA declarada do tipo — a tag dentro de `<type>`: `BOOL`, `derived`,
+    `array`. Separada do nome porque distinguir primitivo de derivado é uma
+    pergunta diferente de "que tipo é este"."""
+
+    @property
+    def declared_type(self) -> str:
+        """O que vai para `VariableDeclaration.declared_type`.
+
+        O nome quando existe; a forma quando não existe. Nunca vazio por
+        omissão: um tipo sem nome derivável continua sendo um fato declarado, e
+        apagá-lo esconderia a declaração inteira em vez de só o nome.
+        """
+        return self.type_name or self.type_kind or ""
 
     def to_dict(self) -> dict[str, Any]:
         return {"name": self.name, "group": self.group,
-                "type_name": self.type_name}
+                "type_name": self.type_name, "type_kind": self.type_kind}
 
     @classmethod
     def from_dict(cls, data: dict) -> InterfaceVariable:
         return cls(name=data.get("name"), group=data.get("group"),
-                   type_name=data.get("type_name"))
+                   type_name=data.get("type_name"),
+                   type_kind=data.get("type_kind"))
 
 
 @dataclass

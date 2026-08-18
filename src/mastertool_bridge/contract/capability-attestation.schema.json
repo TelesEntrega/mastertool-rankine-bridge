@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rankinesystems.com.br/schemas/capability-attestation-v1.json",
+  "title": "Capability Attestation v1",
+  "description": "A maturidade MEDIDA de cada capacidade, carregada em runtime. Substitui a maturidade que ficava escrita no EXECUTOR_CONTRACT do planner. Sem attestation carregada e válida, a maturidade efetiva de qualquer capacidade e `discovered` -- o core nao infere maturidade de comentario, de nome de run nem de documento ausente do pacote.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "core_contract_sha256",
+    "issued_from_commit",
+    "product",
+    "product_version",
+    "template_profile",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Versao desconhecida RECUSA o documento. Ler um documento cuja versao nao se conhece e adivinhar o significado dos campos."
+    },
+    "product": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Produto contra o qual as execucoes rodaram, ex. 'MasterTool X'."
+    },
+    "product_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Versao do produto. Capacidade provada numa versao NAO se presume provada em outra -- e a mesma razao pela qual COMPATIBILITY_MATRIX.md existe."
+    },
+    "template_profile": {
+      "type": "string",
+      "minLength": 1,
+      "description": "`profile_id` do Template Profile sobre o qual as execucoes rodaram."
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "Quando o documento foi emitido. Informativo: nao entra em nenhuma decisao, porque data nao e evidencia."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Capacidade -> maturidade medida. Uma attestation vazia nao e uma attestation: se a intencao e nao promover nada, o caminho e nao carregar documento nenhum. Capacidade AUSENTE daqui fica `discovered` -- ausencia nao e erro, e ausencia.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "maturity",
+          "bundle_sha256",
+          "evidence_id"
+        ],
+        "properties": {
+          "maturity": {
+            "enum": [
+              "discovered",
+              "field_proven",
+              "repeatable",
+              "template_qualified",
+              "version_qualified",
+              "production_qualified"
+            ],
+            "description": "A escala e a mesma de `templates/profile.py`. Ela NAO e redefinida aqui: duas definicoes da mesma escala divergem no dia em que alguem acrescenta um grau."
+          },
+          "independent_runs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "DERIVADO, nunca fonte de verdade. Opcional; informado, tem de coincidir com `len(set(qualification_evidence.run_ids))`. Era obrigatorio e era a unica prova do grau -- um inteiro digitado, sem id de execucao, sem pacote por execucao e sem comparacao. Um inteiro nao distingue dez execucoes de uma execucao copiada nove vezes."
+          },
+          "qualification_evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "run_ids",
+              "comparison_report_sha256"
+            ],
+            "description": "OBRIGATORIO para `repeatable` e acima -- os graus que tem piso em `MIN_INDEPENDENT_RUNS`. `field_proven` nao precisa: ele pede UMA execucao completa e verificavel, e o pacote citado em `bundle_sha256` ja prova isso sozinho.",
+            "properties": {
+              "run_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true,
+                "description": "Os ids das execucoes. Cada um tem de ter pacote localizado em `bundle_root`, integro e COMPLETO. Id repetido e UMA execucao contada duas vezes, e independencia e exatamente o que a contagem deveria provar."
+              },
+              "comparison_report_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "description": "sha256 do relatorio de comparacao N-aria, localizado POR CONTEUDO em `<bundle_root>/qualification/`. Ids distintos provam que os ids sao distintos; so a comparacao prova que as execucoes sao equivalentes entre si e independentes duas a duas. O relatorio e o veredito de `compare_many`: equivalencia por referencia, independencia em TODOS os pares."
+              },
+              "equivalent": {
+                "type": "boolean",
+                "description": "Redundancia CONFERIDA contra o relatorio, nunca lida do documento. Divergiu do relatorio, a attestation e recusada: documento que contradiz a propria evidencia nao e conferivel."
+              },
+              "pairwise_independent": {
+                "type": "boolean",
+                "description": "Idem. O valor que decide esta no relatorio."
+              }
+            }
+          },
+          "bundle_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "`bundle_sha256` do Evidence Bundle selado que respalda o grau. Referencia documental (`docs/46`, `run-033`) NAO substitui este campo: um caminho de documento nao prova integridade de nada, e foi exatamente assim que a maturidade estatica passou a citar evidencia ausente do pacote."
+          },
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Identificador da evidencia interna. Serve para achar o registro na arvore que o possui; nao substitui o hash."
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "core_contract_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "VINCULO NORMATIVO. sha256 do contrato canonico do nucleo -- capacidades, mapeamento operacao->capacidade, pisos de execucao, politicas de maturidade efetiva e de confirmacao de evidencia, e os hashes dos schemas operacionais. Divergiu, a attestation e RECUSADA por inteiro: ela foi medida sob outras regras. Substituiu `core_commit`, que nao tinha ponto fixo (o commit que carrega o documento muda o HEAD, entao ele nascia obsoleto por um commit) e invalidava medicao de campo por causa de commit de documentacao."
+    },
+    "issued_from_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "PROVENIENCIA, nunca validade. De qual commit o documento foi emitido -- serve para achar de onde ele veio. NAO e comparado com o HEAD: uma attestation versionada dentro da arvore nunca aponta para o commit que a contem, e compara-la com o HEAD a faria nascer invalida."
+    }
+  }
+}

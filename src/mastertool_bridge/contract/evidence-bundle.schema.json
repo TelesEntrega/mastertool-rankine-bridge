@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rankinesystems.com.br/contract/evidence-bundle-v1.json",
+  "title": "Evidence Bundle Manifest v1",
+  "description": "O manifesto de um pacote de evidencia SELADO: hash por arquivo, hash do conjunto, e o que faltou. E ele que a capability attestation cita por `bundle_sha256` -- referencia documental nao serve, porque caminho de documento nao prova integridade de nada.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "status",
+    "complete",
+    "files",
+    "missing_required",
+    "bundle_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "INTEIRO. Familia da camada `src/` (docs/19 secao 7) -- ao contrario dos artefatos de probe, que usam a string \"1.0\". O pacote e montado pelo host, nao dentro do MasterTool."
+    },
+    "run_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": ["open", "sealed_complete", "sealed_incomplete"],
+      "description": "Um pacote incompleto SELA assim mesmo: a execucao que deu errado e a que mais precisa ficar registrada, e recusar-se a selar deixaria a evidencia solta em disco, sem hash e sem manifesto. O que ele nao pode e passar por completo -- e `sealed_incomplete` NAO confirma capacidade nenhuma na attestation (achado da revisao adversarial de A0: integro nao e completo)."
+    },
+    "complete": {
+      "type": "boolean",
+      "description": "Derivado de `status`. Existe para o leitor nao precisar conhecer o vocabulario."
+    },
+    "files": {
+      "type": "object",
+      "description": "Caminho relativo -> sha256. E a conferencia arquivo a arquivo que detecta alteracao, remocao e acrescimo DEPOIS do selo.",
+      "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "missing_required": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "O que o layout exigia e nao chegou. Lista vazia com `sealed_complete`; qualquer entrada torna o pacote incompleto. Inclui obrigatoriedade CONDICIONAL: um plano que ALTERA objeto preexistente tambem deve trazer o texto anterior, e o layout estatico nao tem como saber isso -- quem sabe e quem empacota."
+    },
+    "bundle_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Hash do CONJUNTO. E o identificador que a attestation cita e o que uma decisao de aprovacao amarra: se o pacote muda depois da decisao, a aprovacao deixa de valer, porque ninguem aprovou aquele conteudo."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Contexto do empacotamento. Livre de proposito: e onde entra o que ajuda a ler o pacote depois sem reabrir o plano (`plan_has_modifications`, `execution_status`, origem)."
+    }
+  }
+}

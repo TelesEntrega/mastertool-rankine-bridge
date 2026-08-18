@@ -108,6 +108,24 @@ def allowed_names(section: str) -> tuple[str, ...]:
     return tuple(layout["required"]) + tuple(layout["optional"])
 
 
+def missing_required_in(root: Path | str) -> list[str]:
+    """O que falta no pacote, RECOMPUTADO do layout percorrendo o disco.
+
+    Função livre, e não método, porque quem confere uma evidência tem um
+    caminho — não tem o objeto que montou o pacote. Enquanto a única
+    implementação era o método, conferir completude de um bundle alheio só
+    dava para ler `manifest.missing_required`, que é o campo que o achado
+    RV2-1 mostrou ser forjável.
+    """
+    raiz = Path(root)
+    faltando: list[str] = []
+    for secao, layout in BUNDLE_LAYOUT.items():
+        for nome in layout["required"]:
+            if not (raiz / secao / nome).is_file():
+                faltando.append("%s/%s" % (secao, nome))
+    return faltando
+
+
 @dataclass
 class BundleManifest:
     run_id: str
@@ -189,12 +207,7 @@ class EvidenceBundle:
     # --- fechamento ---------------------------------------------------------
 
     def missing_required(self) -> list[str]:
-        faltando: list[str] = []
-        for secao, layout in BUNDLE_LAYOUT.items():
-            for nome in layout["required"]:
-                if not (self.root / secao / nome).is_file():
-                    faltando.append("%s/%s" % (secao, nome))
-        return faltando
+        return missing_required_in(self.root)
 
     def seal(self, metadata: dict | None = None,
              extra_missing: list[str] | None = None) -> BundleManifest:
@@ -258,34 +271,87 @@ class EvidenceBundle:
 
 @dataclass
 class BundleVerification:
+    """Íntegro e completo são DUAS perguntas, e cada uma tem sua fonte.
+
+    `intact` é sobre adulteração: os arquivos declarados ainda têm o conteúdo
+    declarado. Ela se responde recomputando hashes.
+
+    `complete` é sobre suficiência: o pacote tem tudo que o layout exige. Ela
+    se responde **percorrendo o disco**, e é o achado RV2-1 — enquanto ela foi
+    lida de `manifest.status`, quem tinha escrita no diretório removia um
+    arquivo obrigatório, recomputava `files` e `bundle_sha256` pelo mesmo
+    algoritmo do selo, escrevia `sealed_complete`, e o pacote passava íntegro
+    E completo.
+    """
+
     run_id: str | None = None
     problems: list[str] = field(default_factory=list)
     checked_files: int = 0
     status: str | None = None
+    # Recomputado do layout, percorrendo o disco. Esta é a fonte.
+    recomputed_missing_required: list[str] = field(default_factory=list)
+    # Lido do manifesto. Diagnóstico — e mais uma coisa, ver `effective`.
+    manifest_missing_required: list[str] = field(default_factory=list)
+    inconsistencies: list[str] = field(default_factory=list)
 
     @property
     def intact(self) -> bool:
         return not self.problems
 
+    @property
+    def effective_missing_required(self) -> list[str]:
+        """A união, e a direção da confiança é o ponto.
+
+        O manifesto pode ACRESCENTAR faltas, nunca removê-las. Ele acrescenta
+        porque sabe coisas que o layout estático não sabe: `rollback/` é
+        opcional no layout, e obrigatório quando o plano ALTEROU objeto
+        preexistente — condição que só quem montou o pacote conhece, e que
+        chega ao selo por `extra_missing`.
+
+        Confiar nele nos dois sentidos reabriria o RV2-1. Descartá-lo
+        desfaria a guarda condicional de reversibilidade, que custou dez
+        pacotes selados errado para existir. Monotonicidade resolve os dois:
+        declarar falta é aceito, declarar completude não é.
+        """
+        return sorted(set(self.recomputed_missing_required)
+                      | set(self.manifest_missing_required))
+
+    @property
+    def complete(self) -> bool:
+        return not self.effective_missing_required
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "intact": self.intact,
+            "complete": self.complete,
             "status": self.status,
             "checked_files": self.checked_files,
+            "recomputed_missing_required": list(self.recomputed_missing_required),
+            "manifest_missing_required": list(self.manifest_missing_required),
+            "effective_missing_required": list(self.effective_missing_required),
+            "inconsistencies": list(self.inconsistencies),
             "problems": list(self.problems),
         }
 
 
 def verify_bundle(root: Path | str) -> BundleVerification:
-    """Recomputa os hashes e compara com o manifesto.
+    """Recomputa hashes E completude, e compara os dois com o manifesto.
 
-    Detecta: arquivo alterado, removido, acrescentado depois do selo, e
-    manifesto ausente ou ilegível. Nunca levanta — quem decide o que fazer
-    com um pacote adulterado é o chamador.
+    Detecta: arquivo alterado, removido, acrescentado depois do selo,
+    manifesto ausente ou ilegível, e — desde RV2-1 — manifesto que declara
+    completude que o disco não sustenta.
+
+    Nunca levanta: quem decide o que fazer com um pacote adulterado é o
+    chamador.
     """
     raiz = Path(root)
     resultado = BundleVerification()
+
+    # ANTES de qualquer retorno: um pacote sem manifesto legível não pode sair
+    # daqui com `complete` verdadeiro só porque a lista ficou vazia por falta
+    # de execução. Ausência de conferência não é conferência.
+    resultado.recomputed_missing_required = missing_required_in(raiz)
 
     caminho_manifesto = raiz / MANIFEST_NAME
     if not caminho_manifesto.is_file():
@@ -307,6 +373,35 @@ def verify_bundle(root: Path | str) -> BundleVerification:
     resultado.run_id = dados.get("run_id")
     resultado.status = dados.get("status")
     declarados: dict[str, str] = dados["files"]
+
+    declarado_faltando = dados.get("missing_required")
+    if isinstance(declarado_faltando, list) and all(
+            isinstance(x, str) for x in declarado_faltando):
+        resultado.manifest_missing_required = list(declarado_faltando)
+    elif declarado_faltando is not None:
+        resultado.inconsistencies.append(
+            "missing_required do manifesto não é lista de strings: %r"
+            % (declarado_faltando,))
+
+    # As duas divergências possíveis, e elas NÃO são simétricas.
+    so_no_disco = sorted(set(resultado.recomputed_missing_required)
+                         - set(resultado.manifest_missing_required))
+    if so_no_disco:
+        resultado.inconsistencies.append(
+            "o manifesto não registra falta que o layout exige: %s. O pacote é "
+            "INCOMPLETO — completude vem do disco, e este é o sentido em que o "
+            "manifesto não pode ser acreditado" % ", ".join(so_no_disco))
+    if resultado.status == STATUS_SEALED_COMPLETE and (
+            resultado.effective_missing_required):
+        resultado.inconsistencies.append(
+            "manifesto declara %s e falta: %s"
+            % (STATUS_SEALED_COMPLETE,
+               ", ".join(resultado.effective_missing_required)))
+    if resultado.status == STATUS_SEALED_INCOMPLETE and (
+            not resultado.effective_missing_required):
+        resultado.inconsistencies.append(
+            "manifesto declara %s e nada falta; o pacote é aceito como completo "
+            "com esta divergência registrada" % STATUS_SEALED_INCOMPLETE)
 
     presentes = {
         caminho.relative_to(raiz).as_posix()

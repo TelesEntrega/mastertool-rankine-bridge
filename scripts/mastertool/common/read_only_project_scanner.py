@@ -65,6 +65,8 @@ Compatibilidade: IronPython 2.7.
 """
 from __future__ import print_function
 
+import json
+
 from common import capabilities, compatibility
 
 DEFAULT_MAX_DEPTH = 8
@@ -237,6 +239,48 @@ def _access_index(collection, obj_label, index):
     return "confirmed", record["raw_value"], None
 
 
+# Contadores cuja presenca torna a varredura NAO confiavel. Lista FECHADA e
+# explicita: um contador novo tem de entrar aqui por decisao, e nao ser
+# esquecido de fora -- esquecer de fora e o modo de falha que produz de novo um
+# `scan_complete` permissivo.
+_COUNTERS_THAT_BREAK_COMPLETENESS = (
+    "collection_errors",
+    "partial_nodes",
+    "failed_nodes",
+    "field_errors",
+    "index_errors",
+)
+
+
+def _derive_scan_complete(stats, tree_root, limits_hit):
+    """`scan_complete` e CONJUNCAO, nunca sinonimo de `traversal_finished`.
+
+    `traversal_finished` responde "o algoritmo terminou?"; `scan_complete`
+    responde "o que saiu daqui pode ser lido como a arvore?". Ate o
+    R3.1A-3-FIX-2 existia so o primeiro, com o nome do segundo: a run-065 saiu
+    `scan_complete: True` com `partial_nodes: 14`, e a diferenca entre
+    "nao ha filhos" e "nao sei se ha filhos" desaparecia no campo booleano.
+
+    A raiz entra por `state == confirmed` e nao por contador: uma raiz cuja
+    colecao nao confirmou produz arvore de um no so, que passaria por todos os
+    contadores zerados -- foi o desfecho da run-049.
+
+    Limite atingido tambem reprova: uma varredura truncada por profundidade ou
+    por teto de nos terminou normalmente e nao percorreu a arvore. O limite fica
+    registrado em `limits`, e quem quiser aceitar a truncagem le de la; o que
+    nao pode e a truncagem sair com o mesmo booleano de uma varredura inteira.
+    """
+    if not stats.get("traversal_finished"):
+        return False
+    for contador in _COUNTERS_THAT_BREAK_COMPLETENESS:
+        if stats.get(contador):
+            return False
+    if any(limits_hit.values()):
+        return False
+    raiz = (tree_root or {}).get("collection") or {}
+    return raiz.get("state") == COLLECTION_STATE_CONFIRMED
+
+
 class ReadOnlyProjectScanner(object):
     """Scanner recursivo (DFS iterativo), somente leitura, com limites
     rigidos. Ver docstring do modulo para as regras completas."""
@@ -248,11 +292,38 @@ class ReadOnlyProjectScanner(object):
         self.max_children_per_node = max_children_per_node
         self.expected_root_count = expected_root_count
 
-    def scan(self, project):
+    def scan(self, project, visitor=None):
         """Executa UMA varredura completa contra um `project` JA RESOLVIDO.
         Nunca lanca excecao; retorna sempre um dict 100% serializavel (ver
         docstring do modulo, secao 6 da especificacao original, para o
-        schema completo)."""
+        schema completo).
+
+        `visitor` (opcional, contrato docs/59) e chamado UMA vez por no
+        alcancado, com `(node_proxy, record)`, e o que ele devolver entra no
+        registro sob "visitor". Ele existe porque a saida deste scanner e 100%
+        serializavel de proposito: o proxy vivo e usado e descartado, e ha
+        perguntas -- `hasattr(obj, ...)`, `GetType().GetInterfaces()` -- que so
+        o objeto vivo responde.
+
+        QUATRO RESTRICOES, cada uma contra uma falha nomeada:
+
+          * ele NAO altera o percurso: nao escolhe filhos, nao poda, nao
+            ordena. Um visitante capaz de podar tornaria a varredura dependente
+            do chamador, e "arvore inteira ou recusa explicita" deixaria de ser
+            verificavel aqui dentro;
+          * excecao dele e isolada como falha de RAMO e nao interrompe o scan.
+            Derrubar a varredura transformaria erro de classificacao em arvore
+            ilegivel -- dois diagnosticos distintos virando um;
+          * o valor devolvido tem de ser serializavel, senao a propriedade que
+            motiva este parametro se perderia por dentro;
+          * `visitor=None` e o comportamento anterior, byte a byte.
+
+        A GARANTIA DESTE MODULO NAO COBRE O VISITANTE. Este scanner promete o
+        que ELE chama (nunca `dir()`, `find()`, documento textual, API online,
+        criacao/alteracao/compilacao). Um visitante e codigo do CHAMADOR, e a
+        garantia sobre a inspecao e dele -- no probe 49, a guarda de AST que
+        recusa verbo mutante. Duas garantias, duas portas.
+        """
         errors = []
         stats = {
             "total_nodes": 0,
@@ -266,6 +337,13 @@ class ReadOnlyProjectScanner(object):
             "collection_errors": 0,
             "index_errors": 0,
             "duplicate_object_guids": 0,
+            # DOIS campos, e nao um. `traversal_finished` e estado MECANICO: o
+            # laco chegou ao fim sem abortar. `scan_complete` e estado
+            # EPISTEMICO: a arvore foi percorrida inteira e o que saiu daqui
+            # pode ser lido como a arvore. Ate o R3.1A-3-FIX-2 os dois eram o
+            # mesmo campo com o nome do segundo e a semantica do primeiro, e a
+            # run-065 saiu `scan_complete: True` com 14 nos parciais.
+            "traversal_finished": False,
             "scan_complete": False,
         }
         limits_hit = {
@@ -306,11 +384,17 @@ class ReadOnlyProjectScanner(object):
         while stack and not aborted[0]:
             frame = stack.pop()
             self._process_node(frame, stack, errors, stats, limits_hit,
-                               seen_object_guids, total_nodes, aborted)
+                               seen_object_guids, total_nodes, aborted,
+                               visitor)
 
         stats["total_nodes"] = total_nodes[0]
-        stats["scan_complete"] = not aborted[0]
+        stats["traversal_finished"] = not aborted[0]
+        # `_classify_nodes` e quem preenche partial_nodes/failed_nodes, entao a
+        # conjuncao so pode ser derivada DEPOIS dela. Derivar antes daria
+        # exatamente o campo permissivo que este slice esta removendo.
         self._classify_nodes(tree_root, stats, is_root=True)
+        stats["scan_complete"] = _derive_scan_complete(stats, tree_root,
+                                                       limits_hit)
 
         return {
             "schema_version": "1.0",
@@ -329,12 +413,19 @@ class ReadOnlyProjectScanner(object):
         }
 
     def _process_node(self, frame, stack, errors, stats, limits_hit,
-                      seen_object_guids, total_nodes, aborted):
+                      seen_object_guids, total_nodes, aborted, visitor=None):
         record = frame["record"]
         proxy = frame["proxy"]
         depth = frame["depth"]
         obj_label = frame["obj_label"]
         col = record["collection"]
+
+        # O visitante roda para TODO no alcancado, inclusive o que sera
+        # barrado pelo limite de profundidade logo abaixo: ele FOI alcancado e
+        # a identidade dele ja esta lida. Chamar so nos nos que descem faria a
+        # cobertura do visitante depender de um limite de navegacao.
+        if visitor is not None:
+            self._run_visitor(visitor, proxy, record, errors, stats)
 
         if depth > self.max_depth:
             limits_hit["max_depth_reached"] = True
@@ -506,6 +597,41 @@ class ReadOnlyProjectScanner(object):
 
         for item in reversed(pending_push):
             stack.append(item)
+
+    def _run_visitor(self, visitor, proxy, record, errors, stats):
+        """Chama o visitante e ISOLA a falha dele.
+
+        Uma excecao aqui e falha de ramo, com a mesma severidade das outras --
+        nunca o fim do scan. E o resultado passa por serializacao ANTES de
+        entrar no registro: um visitante que devolvesse o proxy vivo destruiria
+        em silencio a propriedade que este scanner promete.
+        """
+        try:
+            resultado = visitor(proxy, record)
+        except BaseException as exc:                                # noqa: BLE001
+            stats["visitor_errors"] = stats.get("visitor_errors", 0) + 1
+            errors.append({
+                "where": record["node_id"],
+                "message": ("falha no visitante: %r. Isolada: o no continua "
+                            "registrado e a varredura segue." % (exc,)),
+            })
+            record["visitor"] = {"state": "visitor_failed"}
+            return
+        if resultado is None:
+            return
+        try:
+            json.dumps(resultado)
+        except (TypeError, ValueError) as exc:
+            stats["visitor_errors"] = stats.get("visitor_errors", 0) + 1
+            errors.append({
+                "where": record["node_id"],
+                "message": ("visitante devolveu valor nao serializavel (%s); "
+                            "descartado para preservar a saida do scanner."
+                            % (exc,)),
+            })
+            record["visitor"] = {"state": "visitor_unserializable"}
+            return
+        record["visitor"] = resultado
 
     def _classify_nodes(self, node, stats, is_root=False):
         """Classifica cada no (complete/partial/failed) e acumula nas

@@ -118,7 +118,12 @@ _OPTIONAL_BY_FAMILY = {
     "duts": {"language", "uses"},
     "gvls": {"language", "uses"},
     "functions": {"uses"},
-    "function_blocks": {"uses"},
+    # `methods`: R3.1B (docs/87). SÓ em `function_blocks`. A matriz do docs/86
+    # mediu `create_method` alcançável também em PROGRAM e FUNCTION, e o
+    # contrato recusa ler isso como autorização geral — `PRESENT ≠ necessário ≠
+    # qualificado`. Deixar o campo fora de `functions` e `programs` faz a
+    # rejeição ser de SCHEMA, e não de convenção.
+    "function_blocks": {"uses", "methods"},
     "programs": {"uses"},
     # `existing`: a task JÁ EXISTE no template e deve ser REUSADA, nunca
     # criada. A `MainTask` do template é assim, e foi o que todas as execuções
@@ -255,6 +260,92 @@ def _validate_language(family: str, name: str, language: Any, problems: list[str
             f"'{ST_LANGUAGE_GUID}'); corrija para o GUID medido em runtime.")
 
 
+_METHOD_REQUIRED = frozenset({"name", "declaration", "implementation"})
+_METHOD_OPTIONAL = frozenset({"return_type"})
+
+
+def _validate_methods(family: str, owner: str, methods: Any,
+                      problems: list[str]) -> None:
+    """Valida a lista de `METHOD` de um `FUNCTION_BLOCK` (R3.1B, docs/87).
+
+    Duas coisas que este validador NÃO faz, e ambas por decisão medida:
+
+    * não aceita `language` no membro. O parâmetro da API é `Nullable<Guid>`
+      com default `null`, e não existe rota para LER a linguagem do owner
+      (`docs/api` §5). O owner já a declara; duplicar aqui criaria duas fontes
+      de verdade para um valor que nem se confere contra o produto.
+    * não exige `return_type`. Ausente ou `null` é **método sem retorno**, que
+      é a representação nativa da API: `create_method` tem default `null`,
+      enquanto `create_property` tem default `int` — o produto distingue as duas
+      famílias. Converter ausência em `BOOL` ou `VOID` seria inventar IEC.
+    """
+    if family != "function_blocks":
+        problems.append(
+            f"{family}.{owner}.methods: `methods` só existe em "
+            "'function_blocks'. O escopo qualificado do R3.1B é "
+            "FUNCTION_BLOCK → METHOD (docs/87 §2); `create_method` foi medido "
+            "alcançável também em PROGRAM e FUNCTION, e isso NÃO é autorização.")
+        return
+
+    if not isinstance(methods, list):
+        problems.append(
+            f"function_blocks.{owner}.methods: deve ser lista, recebido "
+            f"{type(methods).__name__}.")
+        return
+
+    vistos: dict[str, int] = {}
+    for i, metodo in enumerate(methods):
+        local = f"function_blocks.{owner}.methods[{i}]"
+        if not isinstance(metodo, dict):
+            problems.append(
+                f"{local}: deve ser um objeto (dict), recebido "
+                f"{type(metodo).__name__}.")
+            continue
+
+        desconhecidos = set(metodo.keys()) - (_METHOD_REQUIRED | _METHOD_OPTIONAL)
+        if desconhecidos:
+            problems.append(
+                f"{local}: campo(s) desconhecido(s), fail-closed: "
+                + ", ".join(sorted(desconhecidos))
+                + " — campos aceitos: "
+                + ", ".join(sorted(_METHOD_REQUIRED | _METHOD_OPTIONAL)))
+
+        faltando = _METHOD_REQUIRED - set(metodo.keys())
+        if faltando:
+            problems.append(
+                f"{local}: campo(s) obrigatório(s) ausente(s): "
+                + ", ".join(sorted(faltando)))
+
+        nome = metodo.get("name")
+        if not _is_valid_iec_name(nome):
+            problems.append(f"{local}.name: {_explain_invalid_name(nome)}")
+        else:
+            # Duplicata é erro DENTRO do owner: dois `METHOD` de mesmo nome no
+            # mesmo FB não são dois objetos, são um pedido ambíguo — e o
+            # executor não teria como decidir qual reencontrar depois.
+            if nome in vistos:
+                problems.append(
+                    f"function_blocks.{owner}.methods: nome '{nome}' repetido "
+                    f"(índices {vistos[nome]} e {i}). A identidade do membro é "
+                    "owner + METHOD + nome (docs/87 §6).")
+            else:
+                vistos[nome] = i
+
+        for campo in ("declaration", "implementation"):
+            if campo in metodo and not isinstance(metodo[campo], str):
+                problems.append(
+                    f"{local}.{campo}: deve ser string, recebido "
+                    f"{type(metodo[campo]).__name__}.")
+
+        if "return_type" in metodo:
+            rt = metodo["return_type"]
+            if rt is not None and (not isinstance(rt, str) or not rt):
+                problems.append(
+                    f"{local}.return_type: deve ser string não vazia ou null. "
+                    "Ausente ou null significa MÉTODO SEM RETORNO — nunca "
+                    "converter em 'BOOL' nem 'VOID'.")
+
+
 def _validate_object(family: str, index: int, obj: Any, problems: list[str]) -> str | None:
     """Valida um objeto de uma família. Devolve o nome (se extraível) para
     que o chamador ainda possa usá-lo em checagens de duplicata/referência
@@ -313,6 +404,9 @@ def _validate_object(family: str, index: int, obj: Any, problems: list[str]) -> 
             problems.append(
                 f"{family}.{label}.return_type: deve ser string não vazia "
                 "(ex.: 'BOOL').")
+
+    if "methods" in obj:
+        _validate_methods(family, label, obj["methods"], problems)
 
     if "uses" in obj:
         uses = obj["uses"]

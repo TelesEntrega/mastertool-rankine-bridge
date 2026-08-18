@@ -144,6 +144,146 @@ def cmd_find_reads(args) -> int:
     return _find_symbol_refs(args, "reads")
 
 
+# --- Ladder (R4.2) -----------------------------------------------------------
+#
+# Comandos TECNICOS, minimos, cujo proposito e provar o modelo: se as perguntas
+# do gate de R4.2 nao puderem ser respondidas por um comando, elas nao foram
+# respondidas -- foram descritas. A interface definitiva e R4.3/R11, e nenhuma
+# decisao de resolucao mora aqui.
+
+# CODIGO DE SAIDA, e a regra e uma so: ele descreve se a CONSULTA rodou, nunca
+# o que ela achou.
+#
+#   consulta executada, mesmo com zero resultados  -> 0
+#   multiplos writers encontrados                  -> 0
+#   unresolved encontrados                         -> 0
+#   argumento invalido, arquivo ilegivel, erro     -> != 0
+#
+# Multiplos escritores e simbolo nao resolvido sao FATO e DIAGNOSTICO. Fazer a
+# ferramenta reprovar por causa deles a faria emitir juizo sobre engenharia que
+# ela nao conhece -- e transformaria qualquer CI que a use num alarme falso
+# permanente, ate alguem desligar a verificacao inteira.
+
+def _ladder_query(args):
+    from mastertool_bridge.plcopen.ladder_pipeline import query_from_export
+
+    return query_from_export(args.xml_path)
+
+
+def _ladder(fn):
+    """Envolve um comando Ladder traduzindo falha em codigo de saida.
+
+    DOIS codigos de falha, e nao um: `2` e "a entrada nao serve" (arquivo
+    ausente, XML malformado, argumento invalido) e `3` e "o programa falhou".
+    Colapsar os dois faria um defeito nosso parecer erro do usuario, e quem
+    receber o `2` iria conferir o arquivo em vez de reportar o bug.
+    """
+    def _executar(args) -> int:
+        from mastertool_bridge.plcopen.ladder_parser import LadderParseError
+
+        try:
+            resultado = fn(_ladder_query(args), args)
+        except (FileNotFoundError, LadderParseError, ValidationError,
+                ValueError, OSError) as exc:
+            print("entrada invalida: %s" % exc, file=sys.stderr)
+            return 2
+        except (BridgeError, Exception) as exc:      # noqa: BLE001
+            print("erro interno: %s" % exc, file=sys.stderr)
+            return 3
+        _print_json(resultado)
+        return 0
+    return _executar
+
+
+cmd_ladder_writers = _ladder(
+    lambda q, a: {"symbol": a.symbol, "writers": q.writers(a.symbol)})
+cmd_ladder_readers = _ladder(
+    lambda q, a: {"symbol": a.symbol, "readers": q.readers(a.symbol)})
+cmd_ladder_calls = _ladder(
+    lambda q, a: {"target": a.target, "calls": q.calls(a.target)})
+cmd_ladder_multi_writers = _ladder(
+    lambda q, a: {"count": len(q.multi_writers()),
+                  "symbols": {n: len(f) for n, f in q.multi_writers().items()},
+                  "detail": q.multi_writers()})
+cmd_ladder_unresolved = _ladder(lambda q, a: q.unresolved())
+cmd_ladder_pou = _ladder(lambda q, a: q.pou_semantics())
+cmd_ladder_network = _ladder(
+    lambda q, a: q.network_semantics(a.network_id))
+
+
+def cmd_ladder_report(args) -> int:
+    """Markdown, Mermaid ou HTML -- tres renderizacoes da MESMA consulta."""
+    from mastertool_bridge.reports.ladder_report import (
+        render_dependency_graph,
+        render_ladder_report,
+        render_pou_markdown,
+    )
+
+    from mastertool_bridge.plcopen.ladder_parser import LadderParseError
+
+    try:
+        query = _ladder_query(args)
+    except (FileNotFoundError, LadderParseError, ValidationError, ValueError,
+            OSError) as exc:
+        print("entrada invalida: %s" % exc, file=sys.stderr)
+        return 2
+    except Exception as exc:                          # noqa: BLE001
+        print("erro interno: %s" % exc, file=sys.stderr)
+        return 3
+
+    if args.format == "markdown":
+        saida = render_pou_markdown(query)
+    elif args.format == "graph":
+        saida = render_dependency_graph(query)
+    else:
+        saida = render_ladder_report(query, generated_at=args.generated_at)
+
+    if args.output:
+        Path(args.output).write_text(saida, encoding="utf-8", newline="\n")
+        print("gravado em %s" % args.output)
+    else:
+        print(saida)
+    return 0
+
+
+def cmd_coverage_report(args) -> int:
+    """As sete perguntas da politica de cobertura, sempre as mesmas.
+
+    SAI 0 mesmo com achados. Multiplos escritores e FATO do projeto;
+    `read_never_written` pode ser entrada de hardware. Reprovar por causa
+    deles transformaria qualquer CI num alarme falso permanente, ate alguem
+    desligar a verificacao inteira. A politica obriga a MOSTRAR; o veredito e
+    de engenharia.
+
+    Sai != 0 apenas quando a ANALISE nao rodou.
+    """
+    from mastertool_bridge.coverage.policy import analyse_coverage
+    from mastertool_bridge.plant.control_points import ingest_xlsx
+    from mastertool_bridge.plcopen.ladder_pipeline import query_from_export
+
+    view = plant = None
+    try:
+        if args.ladder:
+            view = query_from_export(args.ladder)
+        if args.inventory:
+            plant = ingest_xlsx(args.inventory, version=args.inventory_version)
+    except (BridgeError, ValidationError, ValueError, OSError) as exc:
+        print("entrada invalida: %s" % exc, file=sys.stderr)
+        return 2
+    except Exception as exc:                              # noqa: BLE001
+        print("erro interno: %s" % exc, file=sys.stderr)
+        return 3
+
+    if view is None and plant is None:
+        print("nenhuma entrada informada: use --ladder e/ou --inventory",
+              file=sys.stderr)
+        return 2
+
+    relatorio = analyse_coverage(view=view, plant=plant, project=args.project)
+    _print_json(relatorio.to_dict())
+    return 0
+
+
 def cmd_build_agent_context(args) -> int:
     from mastertool_bridge.docs.project_documenter import document_project
     from mastertool_bridge.export.indexer import build_index
@@ -414,6 +554,45 @@ def cmd_check_unexpected_changes(args) -> int:
         print(f"  registro: {args.output}")
 
     return 0 if relatorio.clean else 2
+
+
+def cmd_emit_member_rollback_plan(args) -> int:
+    """Emite o PLANO que remove os membros que uma execucao criou (R3.1B).
+
+    Porta de entrada do emissor que ja existe em `changes/member_rollback`.
+    Capacidade sem chamador nunca e exercida contra o campo -- foi por isso que
+    `package-run` precisou existir, e a licao vale aqui.
+
+    Nao e uma segunda fabrica. Ele NAO le spec, NAO replaneja e NAO decide o que
+    remover: deriva tudo do plano da IDA, e amarra o inverso a ela pelo
+    `plan_sha256`. Digitar os nomes de novo provaria que alguem sabe escreve-los,
+    e nao que a ida foi desfeita.
+    """
+    from mastertool_bridge.changes.member_rollback import (
+        build_member_rollback_plan)
+
+    resultado = build_member_rollback_plan(
+        _read_json_or_none(args.plan), output_path=args.output_project,
+        only_members=(args.only_member or None))
+
+    for problema in resultado.problems:
+        print(f"  PROBLEMA: {problema}")
+
+    if not resultado.ok:
+        print("[BLOQUEADO] o plano de reversao nao pode ser emitido.")
+        return 2
+
+    for passo in resultado.plan["steps"]:
+        if passo["operation"] == "remove_method":
+            print(f"  [remove] {passo['owner_name']}.{passo['target_name']}")
+
+    if args.output:
+        write_json(Path(args.output), resultado.plan)
+        print(f"  plano de reversao: {args.output}")
+    else:
+        _print_json(resultado.plan)
+    print("[OK] plano inverso emitido, amarrado a ida por plan_sha256.")
+    return 0
 
 
 def cmd_emit_rollback_spec(args) -> int:
@@ -989,6 +1168,69 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("symbol")
     p.set_defaults(func=cmd_find_reads)
 
+    # --- Ladder (R4.2) -------------------------------------------------------
+    p = sub.add_parser("ladder-writers",
+                       help="Quem ESCREVE um símbolo, em Ladder e ST")
+    p.add_argument("xml_path", help="export PLCopen da POU gráfica")
+    p.add_argument("symbol")
+    p.set_defaults(func=cmd_ladder_writers)
+
+    p = sub.add_parser("ladder-readers",
+                       help="Quem LÊ um símbolo, em Ladder e ST")
+    p.add_argument("xml_path")
+    p.add_argument("symbol")
+    p.set_defaults(func=cmd_ladder_readers)
+
+    p = sub.add_parser("ladder-calls",
+                       help="Chamadas Ladder, opcionalmente filtradas por alvo")
+    p.add_argument("xml_path")
+    p.add_argument("--target", default=None)
+    p.set_defaults(func=cmd_ladder_calls)
+
+    p = sub.add_parser("ladder-multi-writers",
+                       help="Símbolos com mais de um escritor")
+    p.add_argument("xml_path")
+    p.set_defaults(func=cmd_ladder_multi_writers)
+
+    p = sub.add_parser("ladder-unresolved",
+                       help="Identificadores sem resolução, por categoria")
+    p.add_argument("xml_path")
+    p.set_defaults(func=cmd_ladder_unresolved)
+
+    p = sub.add_parser("ladder-pou",
+                       help="Semântica da POU inteira, network a network")
+    p.add_argument("xml_path")
+    p.set_defaults(func=cmd_ladder_pou)
+
+    p = sub.add_parser("ladder-network",
+                       help="O que acontece numa network")
+    p.add_argument("xml_path")
+    p.add_argument("network_id")
+    p.set_defaults(func=cmd_ladder_network)
+
+    p = sub.add_parser("ladder-report",
+                       help="Relatório da POU: markdown, grafo ou HTML")
+    p.add_argument("xml_path")
+    p.add_argument("--format", choices=("markdown", "graph", "html"),
+                   default="markdown")
+    # `generated_at` entra como DADO: o gerador não lê o relógio, para que
+    # dois relatórios da mesma análise sejam idênticos e comparáveis.
+    p.add_argument("--generated-at", dest="generated_at", default="",
+                   help="carimbo de geração (o gerador nunca lê o relógio)")
+    p.add_argument("--output")
+    p.set_defaults(func=cmd_ladder_report)
+
+    p = sub.add_parser("coverage-report",
+                       help="As sete perguntas da politica de cobertura")
+    p.add_argument("--ladder", default=None,
+                   help="export PLCopen de POU grafica (camada resolvida)")
+    p.add_argument("--inventory", default=None,
+                   help="planilha de pontos de controle")
+    p.add_argument("--inventory-version", dest="inventory_version",
+                   default=None)
+    p.add_argument("--project", default="projeto")
+    p.set_defaults(func=cmd_coverage_report)
+
     p = sub.add_parser("build-agent-context",
                        help="Pacote de contexto (índice + docs) para agentes de IA")
     p.add_argument("export_dir")
@@ -1068,6 +1310,24 @@ def build_parser() -> argparse.ArgumentParser:
                    help=("Spec inversa, de `emit-rollback-spec`. Plano COM "
                          "alteração e sem ela sela incompleto."))
     p.set_defaults(func=cmd_package_run)
+
+    p = sub.add_parser(
+        "emit-member-rollback-plan",
+        help=("R3.1B: emite o PLANO que remove os MEMBROS que uma execucao "
+              "criou. Derivado do plano da ida e amarrado a ele por hash."))
+    p.add_argument("--plan", required=True,
+                   help="Plano de autoria da IDA (`authoring-plan.json`)")
+    p.add_argument("--output-project",
+                   help=("Destino do `save_as` da reversao. Sem ele o plano sai "
+                         "sem passo de persistencia -- reverter em memoria e "
+                         "legitimo para medicao, e forcar `save_as` aqui "
+                         "esconderia a diferenca."))
+    p.add_argument("--only-member", action="append", metavar="NOME",
+                   help=("Reverte SOMENTE estes membros. Existe para o ensaio "
+                         "discriminante: remover um e provar que o irmao "
+                         "sobreviveu intacto. Nome que a ida nao criou RECUSA."))
+    p.add_argument("--output", help="Grava o plano inverso neste JSON")
+    p.set_defaults(func=cmd_emit_member_rollback_plan)
 
     p = sub.add_parser(
         "emit-rollback-spec",

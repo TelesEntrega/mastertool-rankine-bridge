@@ -37,7 +37,19 @@ mastertool-bridge-mcp = "mastertool_bridge.mcp_server:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-mastertool_bridge = ["schemas/*.json"]
+# `contract/` E O CONTRATO ENTRE AS DUAS ARVORES, e por isso ele PRECISA
+# viajar com o pacote.
+#
+# O roadmap pedia `operational-contract/` no topo do repositorio. Um diretorio
+# de topo NAO entra na wheel: `pip install mastertool-bridge` receberia um
+# nucleo que nao consegue validar o proprio contrato, e um contrato que so
+# existe em checkout nao e honrado por um core instalado. Dai ele ser
+# subdiretorio do pacote -- desvio de layout com motivo, nao por gosto.
+#
+# ACHADO no caminho: `planner/authoring_plan.schema.json` e
+# `attestation/capability_attestation.schema.json` NUNCA foram empacotados.
+# Sao dois schemas que o codigo carrega por caminho e que sumiam na instalacao.
+mastertool_bridge = ["schemas/*.json", "contract/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

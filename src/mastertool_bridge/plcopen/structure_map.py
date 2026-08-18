@@ -63,6 +63,53 @@ KNOWN_LD_ELEMENTS = (
 )
 
 
+# Tipos elementares do IEC 61131-3, como o PLCopen os materializa: o NOME DO
+# TIPO É A PRÓPRIA TAG (`<BOOL/>`, `<INT/>`). Para todo o resto a tag é só a
+# FORMA do tipo, e o nome mora em outro lugar — em `<derived name="X"/>`, no
+# atributo. Lista literal: uma tag que não esteja aqui não vira elementar por
+# semelhança de nome, porque confundir forma com nome foi exatamente o defeito
+# que esta separação corrige.
+IEC_ELEMENTARY_TYPE_TAGS = frozenset((
+    "BOOL", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
+    "BYTE", "WORD", "DWORD", "LWORD", "REAL", "LREAL", "TIME", "LTIME",
+    "DATE", "TIME_OF_DAY", "TOD", "DATE_AND_TIME", "DT", "CHAR", "WCHAR",
+))
+
+
+def _interface_type(tipo: ET.Element | None):
+    """`(type_kind, type_name, diagnóstico)` de um elemento de `<type>`.
+
+    Os dois fatos são preservados separadamente porque são perguntas
+    diferentes: `type_kind` é a FORMA declarada (`BOOL`, `derived`, `array`) e
+    `type_name` é o nome RESOLVÍVEL contra o índice do projeto (`BOOL`, `TON`).
+
+    Guardar só a forma — o que este módulo fazia — apagava o nome de todo tipo
+    derivado: `<derived name="TON"/>` virava a string `"derived"`, que não casa
+    com FUNCTION_BLOCK nenhum. Substituir a forma pelo nome apagaria a
+    distinção entre primitivo e derivado. Os dois campos existem para que
+    nenhuma das duas perdas volte.
+
+    `type_name` fica `None` quando o nome não é derivável do documento
+    (`array`, `string`, ou `derived` sem atributo `name`) — e `None` é a
+    resposta honesta, não um nome montado por aproximação.
+    """
+    if tipo is None:
+        return None, None, None
+    kind = _ln(tipo)
+    if kind in IEC_ELEMENTARY_TYPE_TAGS:
+        return kind, kind, None
+    if kind == "derived":
+        nome = tipo.get("name")
+        if not nome:
+            return kind, None, {
+                "step": "interface_type",
+                "message": ("<derived> sem atributo `name`: o tipo existe no "
+                            "documento e o nome não é derivável dele"),
+            }
+        return kind, nome, None
+    return kind, None, None
+
+
 def _ln(element: ET.Element) -> str:
     """Nome local, sem namespace."""
     tag = element.tag
@@ -439,13 +486,18 @@ def map_structure(xml_path: Path | str) -> StructureMap:
             for variable in group:
                 if _ln(variable) != "variable":
                     continue
-                type_names = [
-                    _ln(t) for holder in variable if _ln(holder) == "type"
-                    for t in holder]
+                tipo = [t for holder in variable if _ln(holder) == "type"
+                        for t in holder]
+                kind, nome, diagnostico = _interface_type(tipo[0] if tipo
+                                                          else None)
+                if diagnostico:
+                    diagnostico["variable"] = variable.get("name")
+                    diagnostics.append(diagnostico)
                 interface_variables.append({
                     "name": variable.get("name"),
                     "group": group_kind,
-                    "type": type_names[0] if type_names else None,
+                    "type_kind": kind,
+                    "type_name": nome,
                 })
 
     pou_info = {

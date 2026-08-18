@@ -42,7 +42,11 @@ def test_pou_identity_and_interface(structure):
     assert structure.pou["name"] == "FB_EXEMPLO"
     assert structure.pou["pou_type"] == "functionBlock"
     by_name = {v["name"]: v for v in structure.pou["interface_variables"]}
-    assert by_name["ENTRADA"]["type"] == "BOOL"
+    # Forma e nome são fatos separados. Para elementar os dois coincidem; a
+    # separação existe para `<derived name="X"/>`, onde guardar só a forma
+    # apagava o nome do tipo.
+    assert by_name["ENTRADA"]["type_kind"] == "BOOL"
+    assert by_name["ENTRADA"]["type_name"] == "BOOL"
     assert by_name["ENTRADA"]["group"] == "inputVars"
     assert by_name["ESTADO"]["group"] == "localVars"
 

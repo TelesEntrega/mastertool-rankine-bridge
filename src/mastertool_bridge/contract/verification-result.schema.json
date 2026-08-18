@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rankinesystems.com.br/contract/verification-result-v1.json",
+  "title": "Verification Result v1",
+  "description": "O veredito da RELEITURA INDEPENDENTE: o projeto salvo e reaberto numa sessao nova, somente leitura, e conferido contra o que o plano autorizou. E o que distingue 'existiu na sessao' de 'foi persistido' (docs/32 secao 3) -- e por isso ele roda numa abertura propria, e nao no fim da sessao que escreveu.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "script",
+    "status",
+    "exit_code",
+    "is_success",
+    "errors",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "script": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": [
+        "factory_output_verified",
+        "object_missing",
+        "type_mismatch",
+        "text_mismatch",
+        "text_unreadable",
+        "family_not_verifiable",
+        "precondition_failed",
+        "fatal"
+      ],
+      "description": "Vocabulario FECHADO, identico ao `ALL_STATUSES` do probe 47. `family_not_verifiable` BLOQUEIA e nao e nota: a primeira versao o tratava como aviso e devolvia `factory_output_verified` -- a run-032 saiu com '1 de 3 verificados' e veredito verde. Objeto que ninguem conseguiu verificar nao pode sair como verificado."
+    },
+    "exit_code": { "type": "integer" },
+    "is_success": { "type": "boolean" },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "gap_notes": { "type": "array", "items": { "type": "string" } },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "opened_project": { "type": ["string", "null"] },
+    "plan_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "output_sha256_observed": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Hash do arquivo que esta sessao ABRIU, medido por ela. Comparado com o que o host declarou: divergencia significa que a verificacao olhou outro projeto, e um veredito sobre o arquivo errado e pior que nenhum."
+    },
+    "objects_total": { "type": "integer", "minimum": 0 },
+    "objects_verified": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Quantos foram CONFERIDOS. Menor que `objects_total` com status verde e a combinacao que a run-032 produziu e que `family_not_verifiable` passou a bloquear."
+    },
+    "objects_by_outcome": { "type": "array", "items": { "type": "string" } },
+    "node_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Nos varridos na arvore reaberta. ZERO nao e 'arvore vazia': um projeto do MasterTool sempre tem nos, e zero e leitura que falhou."
+    }
+  }
+}

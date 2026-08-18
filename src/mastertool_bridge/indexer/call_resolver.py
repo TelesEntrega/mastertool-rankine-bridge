@@ -41,6 +41,7 @@ from mastertool_bridge.indexer.symbol_resolver import (
     fb_candidates_for_declared_type,
     find_pou_local_variable,
     owner_node_id_from_node_id,
+    resolve_callable_target,
     resolve_dotted_reference,
 )
 
@@ -143,18 +144,31 @@ def _resolve_one_call(
             # FUNCTION direta/unresolved abaixo (variável comum não pode
             # ser "chamada").
 
-    function_candidates = index.functions_by_name.get(callee, [])
-    if len(function_candidates) == 1:
+    # FUNCTION direta, depois PROGRAM direta — pelo SERVIÇO COMPARTILHADO. No
+    # dialeto CODESYS uma PROGRAM chama outra PROGRAM diretamente pelo NOME,
+    # sem variável de instância (diferente de FUNCTION_BLOCK, tratado acima via
+    # find_pou_local_variable + declared_type); por isso `FUNCTION_BLOCK` fica
+    # FORA de `kinds` aqui, e é dialeto, não divergência.
+    #
+    # Este trecho era uma cópia da mesma busca, e a cópia do lado Ladder ficou
+    # para trás: lá o alvo era procurado só entre FUNCTION_BLOCKs, e toda
+    # chamada a PROGRAM saía como símbolo inexistente. Uma implementação só
+    # elimina a possibilidade de corrigir uma e esquecer a outra.
+    ref = resolve_callable_target(callee, index,
+                                  kinds=("FUNCTION", "PROGRAM"))
+    if ref.state == "resolved":
         return ResolvedCall(
             call=call,
             resolution_state="resolved",
-            resolved_symbol=function_candidates[0].node_id,
-            rule_applied="function_direct",
+            resolved_symbol=ref.resolved_symbol,
+            rule_applied=ref.rule_applied,
         )
-    if len(function_candidates) > 1:
+    if ref.state == "ambiguous":
+        categoria = ("FUNCTION" if ref.rule_applied == "function_direct"
+                     else "PROGRAM")
         diags.warning(
             "ambiguous_call_target",
-            f"Chamada a {callee!r}: mais de uma FUNCTION conhecida com "
+            f"Chamada a {callee!r}: mais de uma {categoria} conhecida com "
             "este nome.",
             call.location,
             call.node_id,
@@ -163,39 +177,8 @@ def _resolve_one_call(
             call=call,
             resolution_state="ambiguous",
             resolved_symbol=None,
-            candidates=[s.node_id for s in function_candidates],
-            rule_applied="function_direct",
-        )
-
-    # PROGRAM direto: no dialeto CODESYS uma PROGRAM chama outra PROGRAM
-    # diretamente pelo NOME, sem precisar de uma variável de instância local
-    # (diferente de FUNCTION_BLOCK, tratado acima via find_pou_local_variable
-    # + declared_type). Mesma lógica defensiva de resolved/ambiguous da
-    # FUNCTION direta acima — nunca escolhe arbitrariamente entre 2+ PROGRAMs
-    # com o mesmo nome (não deveria ocorrer num projeto real, mas não
-    # adivinhamos).
-    program_candidates = index.programs_by_name.get(callee, [])
-    if len(program_candidates) == 1:
-        return ResolvedCall(
-            call=call,
-            resolution_state="resolved",
-            resolved_symbol=program_candidates[0].node_id,
-            rule_applied="program_direct",
-        )
-    if len(program_candidates) > 1:
-        diags.warning(
-            "ambiguous_call_target",
-            f"Chamada a {callee!r}: mais de uma PROGRAM conhecida com "
-            "este nome.",
-            call.location,
-            call.node_id,
-        )
-        return ResolvedCall(
-            call=call,
-            resolution_state="ambiguous",
-            resolved_symbol=None,
-            candidates=[s.node_id for s in program_candidates],
-            rule_applied="program_direct",
+            candidates=list(ref.candidates),
+            rule_applied=ref.rule_applied,
         )
 
     diags.info(

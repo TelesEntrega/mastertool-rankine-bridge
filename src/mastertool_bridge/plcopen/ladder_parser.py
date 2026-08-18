@@ -527,7 +527,9 @@ def parse_ladder(xml_path: Path | str) -> GraphicPOU:
 
     # --- interface -----------------------------------------------------------
     interface = [
-        InterfaceVariable(name=v.get("name"), group=v.get("group"), type_name=v.get("type"))
+        InterfaceVariable(name=v.get("name"), group=v.get("group"),
+                          type_name=v.get("type_name"),
+                          type_kind=v.get("type_kind"))
         for v in structure.pou.get("interface_variables") or []]
 
     return GraphicPOU(

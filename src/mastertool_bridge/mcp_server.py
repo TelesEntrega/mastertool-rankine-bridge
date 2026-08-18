@@ -177,6 +177,83 @@ def ask_project_impl(index_dir: str, question: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Ladder (R4.3) -- SOMENTE LEITURA.
+#
+# Nenhuma destas ferramentas toca planner, autoria, gate de escrita ou bundle
+# de evidência. Elas leem um export PLCopen do disco e devolvem a MESMA
+# estrutura que a API Python e a CLI devolvem -- a resposta estruturada
+# continua sendo a fonte de verdade, e nunca é substituída por texto corrido.
+# ---------------------------------------------------------------------------
+
+
+def _ladder_query(xml_path: str):
+    from mastertool_bridge.plcopen.ladder_pipeline import query_from_export
+
+    return query_from_export(xml_path)
+
+
+def _ladder_impl(xml_path: str, fn, *, extra=None, extra_name=None):
+    """Validação e tradução de falha, compartilhadas pelas seis ferramentas."""
+    error = _require_nonempty_str(xml_path, "xml_path")
+    if error is not None:
+        return _validation_error(error)
+    if extra_name is not None:
+        error = _require_nonempty_str(extra, extra_name)
+        if error is not None:
+            return _validation_error(error)
+    from mastertool_bridge.plcopen.ladder_parser import LadderParseError
+
+    try:
+        query = _ladder_query(xml_path)
+        return fn(query)
+    except (FileNotFoundError, LadderParseError, OSError) as exc:
+        # A ENTRADA nao serve. Devolver `unexpected_error` aqui faria o
+        # chamador reportar um bug nosso quando o arquivo e que estava errado.
+        return _index_error(exc)
+    except Exception as exc:  # noqa: BLE001 - rede de seguranca deliberada
+        return _unexpected_error(exc)
+
+
+def get_symbol_writers_impl(xml_path: str, name: str) -> dict[str, Any]:
+    return _ladder_impl(
+        xml_path, lambda q: {"pou": q.pou, "symbol": name,
+                             "writers": q.writers(name)},
+        extra=name, extra_name="name")
+
+
+def get_symbol_readers_impl(xml_path: str, name: str) -> dict[str, Any]:
+    return _ladder_impl(
+        xml_path, lambda q: {"pou": q.pou, "symbol": name,
+                             "readers": q.readers(name)},
+        extra=name, extra_name="name")
+
+
+def get_ladder_calls_impl(xml_path: str,
+                          target: str | None = None) -> dict[str, Any]:
+    return _ladder_impl(
+        xml_path, lambda q: {"pou": q.pou, "target": target,
+                             "calls": q.calls(target)})
+
+
+def get_ladder_unresolved_impl(xml_path: str) -> dict[str, Any]:
+    return _ladder_impl(
+        xml_path, lambda q: {"pou": q.pou, **q.unresolved()})
+
+
+def get_ladder_network_impl(xml_path: str, network_id: str) -> dict[str, Any]:
+    return _ladder_impl(
+        xml_path, lambda q: q.network_semantics(network_id),
+        extra=network_id, extra_name="network_id")
+
+
+def get_ladder_pou_summary_impl(xml_path: str) -> dict[str, Any]:
+    return _ladder_impl(
+        xml_path, lambda q: {"pou": q.pou, "networks": q.networks(),
+                             "summary": q.summary(),
+                             "cross_language": q.cross_language()})
+
+
+# ---------------------------------------------------------------------------
 # Servidor MCP -- wrappers finos em cima das implementações acima.
 # ---------------------------------------------------------------------------
 
@@ -230,6 +307,43 @@ def _build_server() -> Any:
         """Responde uma pergunta em linguagem natural sobre o projeto,
         fundamentada nas evidências do índice."""
         return ask_project_impl(index_dir, question)
+
+    # --- Ladder (R4.3), somente leitura ------------------------------------
+
+    @mcp.tool()
+    def get_symbol_writers(xml_path: str, name: str) -> dict[str, Any]:
+        """Quem ESCREVE um símbolo, em Ladder e ST, com evidência por
+        network e elemento."""
+        return get_symbol_writers_impl(xml_path, name)
+
+    @mcp.tool()
+    def get_symbol_readers(xml_path: str, name: str) -> dict[str, Any]:
+        """Quem LÊ um símbolo, em Ladder e ST, com evidência."""
+        return get_symbol_readers_impl(xml_path, name)
+
+    @mcp.tool()
+    def get_ladder_calls(xml_path: str,
+                         target: str | None = None) -> dict[str, Any]:
+        """Chamadas Ladder, com pinos, instância e estado de resolução."""
+        return get_ladder_calls_impl(xml_path, target)
+
+    @mcp.tool()
+    def get_ladder_unresolved(xml_path: str) -> dict[str, Any]:
+        """Referências sem resolução, separadas por categoria e por
+        NATUREZA (diagnóstico, limitação, contexto insuficiente)."""
+        return get_ladder_unresolved_impl(xml_path)
+
+    @mcp.tool()
+    def get_ladder_network(xml_path: str, network_id: str) -> dict[str, Any]:
+        """Tudo que acontece numa network: leituras, escritas, instâncias,
+        chamadas e o que ficou em aberto."""
+        return get_ladder_network_impl(xml_path, network_id)
+
+    @mcp.tool()
+    def get_ladder_pou_summary(xml_path: str) -> dict[str, Any]:
+        """Resumo da POU Ladder: networks, contagens e referências
+        cruzadas ST × Ladder."""
+        return get_ladder_pou_summary_impl(xml_path)
 
     return mcp
 

@@ -120,6 +120,18 @@ OPERATION_CREATE_DUT = "create_dut"
 OPERATION_CREATE_GVL = "create_gvl"
 OPERATION_CREATE_FUNCTION = "create_function"
 OPERATION_CREATE_FUNCTION_BLOCK = "create_function_block"
+# R3.1B (docs/87). Cria um MEMBRO dentro de um `FUNCTION_BLOCK` -- e a primeira
+# operacao do plano cujo alvo NAO e filho direto da Application: ela depende do
+# owner existir, e por isso e emitida logo apos a criacao dele.
+OPERATION_CREATE_METHOD = "create_method"
+# R3.1B. A REVERSAO da criacao de membro. Nao e `replace` com texto vazio: o
+# gate da R2 pede desfazer PELO MESMO MECANISMO e com o MESMO rigor, e o
+# mecanismo aqui e estrutural -- o objeto sai da arvore, e nao o texto dele.
+#
+# O verbo consumido e `object:remove`, e NAO `remove` cru: o nome nu deixou de
+# ser identidade suficiente porque `IScriptTextDocument.remove(offset, length)`
+# apaga caracteres e `IScriptObject.remove()` apaga o no (docs/87 secao 4).
+OPERATION_REMOVE_METHOD = "remove_method"
 OPERATION_CREATE_PROGRAM = "create_program"
 OPERATION_CREATE_TASK = "create_task"
 OPERATION_CREATE_PROGRAM_CALL = "create_program_call"
@@ -136,6 +148,8 @@ PLAN_OPERATIONS = (
     OPERATION_CREATE_GVL,
     OPERATION_CREATE_FUNCTION,
     OPERATION_CREATE_FUNCTION_BLOCK,
+    OPERATION_CREATE_METHOD,
+    OPERATION_REMOVE_METHOD,
     OPERATION_CREATE_PROGRAM,
     OPERATION_CREATE_TASK,
     OPERATION_CREATE_PROGRAM_CALL,
@@ -194,12 +208,10 @@ EXECUTOR_CONTRACT = {
     # que o enum é injetado no escopo do script.
     OPERATION_CREATE_DUT: {
         "mastertool_operation": "create_dut", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/46 (W6, run-033)"},
+        "cataloged": True, "implementation_available": True},
     OPERATION_CREATE_GVL: {
         "mastertool_operation": "create_gvl", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/33 (W1.1), docs/37 (W1.4, run-019)"},
+        "cataloged": True, "implementation_available": True},
     # PROVADAS na `run-028` (`docs/43`), e a prova é conclusiva porque o
     # PROGRAM gerado **instancia** o FB e **chama** a FUNCTION: criar os dois e
     # deixá-los soltos provaria que a API cria objeto, não que o objeto serve.
@@ -211,16 +223,31 @@ EXECUTOR_CONTRACT = {
     # `create` → `replace` → `save_as` → reabrir → `build`.
     OPERATION_CREATE_FUNCTION: {
         "mastertool_operation": "create_function", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/43 (W5, run-028)"},
+        "cataloged": True, "implementation_available": True},
     OPERATION_CREATE_FUNCTION_BLOCK: {
         "mastertool_operation": "create_function_block", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/43 (W5, run-028)"},
+        "cataloged": True, "implementation_available": True},
+    # R3.1B. `create_method` esta CATALOGADO por reflexao estatica sobre os
+    # assemblies do MT9000 (docs/api secao IScriptIecLanguageMemberContainer),
+    # com assinatura completa: `(name, return_type, language)`.
+    #
+    # `cataloged: True` responde "a API existe e sabemos chama-la". NAO responde
+    # "isto funciona no produto" -- essa e a distincao que fechou um fail-open
+    # real quando spec com FB saia `executable: True` so por a API estar
+    # catalogada. A maturidade nao mora aqui: vem da capability attestation, e
+    # `create_method` permanece `discovered` ate haver execucao de campo.
+    OPERATION_CREATE_METHOD: {
+        "mastertool_operation": "create_method", "mutating": True,
+        "cataloged": True, "implementation_available": True},
+    # `object:remove` -- IDENTIDADE QUALIFICADA, nunca `remove` cru. Autorizar o
+    # nome nu autorizaria tambem a remocao de CARACTERES num documento textual,
+    # que e outra operacao com o mesmo nome (docs/87 secao 4).
+    OPERATION_REMOVE_METHOD: {
+        "mastertool_operation": "object:remove", "mutating": True,
+        "cataloged": True, "implementation_available": True},
     OPERATION_CREATE_PROGRAM: {
         "mastertool_operation": "create_program", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/30 (W1.2), docs/37 (W1.4, run-019)"},
+        "cataloged": True, "implementation_available": True},
     # PROVADO na `run-036`, e o caminho até aqui é a história de duas medições.
     #
     # A `run-032` criou a task e o build passou com **zero erros** — e com um
@@ -239,8 +266,7 @@ EXECUTOR_CONTRACT = {
     # `save_as` também não avisaria nada.
     OPERATION_CREATE_TASK: {
         "mastertool_operation": "create_task", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/48 (W8, run-036)"},
+        "cataloged": True, "implementation_available": True},
     # PROGRAM CALL, IDIOMÁTICO. Duas formas foram medidas, e elas não empatam:
     #
     #   W2 (docs/39, run-021)  `MainTask.pous.add(nome)` -> compila, e o
@@ -253,8 +279,7 @@ EXECUTOR_CONTRACT = {
     # em escala exatamente o que o fabricante desaconselha.
     OPERATION_CREATE_PROGRAM_CALL: {
         "mastertool_operation": "replace", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/41 (W3, run-026)"},
+        "cataloged": True, "implementation_available": True},
     # A OUTRA forma de vincular, e ela existe porque o aviso de W2 nomeia
     # `MainTask`:
     #
@@ -279,8 +304,7 @@ EXECUTOR_CONTRACT = {
     # primeiras verificações e morreria nessa.
     OPERATION_BIND_PROGRAM_TO_TASK: {
         "mastertool_operation": "add", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/48 (W8, run-036)"},
+        "cataloged": True, "implementation_available": True},
     # A CLASSE DE MUTAÇÃO NOVA: atribuição de propriedade, e não chamada de
     # método. `docs/48` §5 nomeou o buraco — a task criada nasce `t#20ms` com
     # prioridade `1`, mais rápida e mais prioritária que a `MainTask`, e a
@@ -299,31 +323,25 @@ EXECUTOR_CONTRACT = {
     # task certa e não em "uma task".
     OPERATION_CONFIGURE_TASK: {
         "mastertool_operation": None, "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/49 (W9, run-037)"},
+        "cataloged": True, "implementation_available": True},
     OPERATION_REPLACE: {
         "mastertool_operation": "replace", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/33 (W1.3A), docs/34 (W1.3B), docs/37 (W1.4)"},
+        "cataloged": True, "implementation_available": True},
     OPERATION_SAVE_AS: {
         "mastertool_operation": "save_as", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/33, docs/37, docs/39, docs/41"},
+        "cataloged": True, "implementation_available": True},
     # Reabrir é abrir um projeto — leitura, não mutação. Fica no plano porque
     # a ordem canônica exige que a verificação aconteça numa sessão nova
     # (docs/32 §3: "é o que distingue 'existiu na sessão' de 'foi persistido'").
     OPERATION_REOPEN: {
         "mastertool_operation": None, "mutating": False,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/37 (postsave), docs/41"},
+        "cataloged": True, "implementation_available": True},
     OPERATION_BUILD: {
         "mastertool_operation": "build", "mutating": True,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/37 (run-019), docs/39 (run-021), docs/41 (run-026)"},
+        "cataloged": True, "implementation_available": True},
     OPERATION_VERIFY: {
         "mastertool_operation": None, "mutating": False,
-        "cataloged": True, "field_proven": True,
-        "evidence": "docs/37, docs/41"},
+        "cataloged": True, "implementation_available": True},
 }
 
 # --- alvos ------------------------------------------------------------------
@@ -343,6 +361,9 @@ TARGET_KIND_FUNCTION_BLOCK_DECLARATION = "function_block_declaration"
 TARGET_KIND_FUNCTION_BLOCK_IMPLEMENTATION = "function_block_implementation"
 TARGET_KIND_PROGRAM_DECLARATION = "program_declaration"
 TARGET_KIND_PROGRAM_IMPLEMENTATION = "program_implementation"
+TARGET_KIND_METHOD = "method"
+TARGET_KIND_METHOD_DECLARATION = "method_declaration"
+TARGET_KIND_METHOD_IMPLEMENTATION = "method_implementation"
 TARGET_KIND_PROJECT = "project"
 
 TARGET_KINDS = (
@@ -359,6 +380,9 @@ TARGET_KINDS = (
     TARGET_KIND_FUNCTION_IMPLEMENTATION,
     TARGET_KIND_FUNCTION_BLOCK_DECLARATION,
     TARGET_KIND_FUNCTION_BLOCK_IMPLEMENTATION,
+    TARGET_KIND_METHOD,
+    TARGET_KIND_METHOD_DECLARATION,
+    TARGET_KIND_METHOD_IMPLEMENTATION,
     TARGET_KIND_PROGRAM_DECLARATION,
     TARGET_KIND_PROGRAM_IMPLEMENTATION,
     TARGET_KIND_PROJECT,
@@ -676,6 +700,28 @@ def _topological_order(nodes: dict[str, tuple[str, str]],
 
 # --- passos ------------------------------------------------------------------
 
+def _methods_of(obj: Any) -> list[dict]:
+    """Os `METHOD` declarados por um `FUNCTION_BLOCK`, na ordem da spec.
+
+    Tolerante a forma: o planner NUNCA levanta, e a spec ja foi validada antes
+    de chegar aqui. Entrada malformada devolve lista vazia em vez de explodir --
+    quem reprova forma e o validador, nao este modulo.
+
+    A ORDEM E A DA SPEC, e nao alfabetica: `docs/87` deixou "ordem semantica ou
+    de apresentacao?" como pergunta aberta, e reordenar aqui responderia essa
+    pergunta por acidente. Preservar a ordem escrita mantem a decisao com quem
+    escreveu a spec.
+    """
+    bruto = obj.get("methods") if isinstance(obj, dict) else None
+    if not isinstance(bruto, list):
+        return []
+    saida = []
+    for metodo in bruto:
+        if isinstance(metodo, dict) and isinstance(metodo.get("name"), str):
+            saida.append(metodo)
+    return saida
+
+
 def _step(sequence: int, operation: str, target_kind: str, target_name: str,
           source_location: str,
           expected_before_kind: str = EXPECTED_BEFORE_NOT_APPLICABLE,
@@ -688,7 +734,9 @@ def _step(sequence: int, operation: str, target_kind: str, target_name: str,
           created_by_sequence: int | None = None,
           task_name: str | None = None,
           program_name: str | None = None,
-          task_properties: list[dict] | None = None) -> dict:
+          task_properties: list[dict] | None = None,
+          owner_name: str | None = None,
+          owner_kind: str | None = None) -> dict:
     """Registro literal de UM passo. Formato UNIFORME: as mesmas quinze chaves
     em todo passo, `None` onde não se aplica.
 
@@ -718,6 +766,12 @@ def _step(sequence: int, operation: str, target_kind: str, target_name: str,
         # o tipo tem de ser escrito antes do intervalo. Um dicionário deixaria
         # essa ordem por conta da serialização.
         "task_properties": task_properties,
+        # R3.1B. O MEMBRO e o primeiro alvo do plano que nao e filho direto da
+        # Application: `owner_name`/`owner_kind` declaram o pai em vez de deixar
+        # o executor inferi-lo por posicao ou por ordem dos passos. `None` em
+        # todo passo que nao e de membro, como as demais chaves.
+        "owner_name": owner_name,
+        "owner_kind": owner_kind,
     }
 
 
@@ -989,6 +1043,34 @@ def _emit_create_steps(ordered: list[str], nodes: dict[str, tuple[str, str]],
                 target_kind=TARGET_KIND_FUNCTION_BLOCK, target_name=name,
                 source_location=key,
                 language_guid=_language_guid_of(obj)))
+            # Os MEMBROS vem imediatamente depois do owner, e nao numa fase
+            # propria: `create_method` exige o owner existindo, e separar as
+            # duas fases faria a dependencia depender da ORDEM DAS FASES em vez
+            # de estar declarada. `owner_name` e o que amarra o passo ao pai --
+            # o executor nao infere pai por posicao.
+            for metodo in _methods_of(obj):
+                sequence += 1
+                nome_metodo = metodo["name"]
+                # A sequencia do MEMBRO, indexada pela chave do membro. E assim
+                # que o `replace` do texto dele o reencontra: o executor pega o
+                # objeto que JA ESTA na mao, em vez de procurar na arvore --
+                # busca depende de `type_guid`, e o de membro nunca foi medido.
+                create_sequence[key + ":methods:" + nome_metodo] = sequence
+                retorno = metodo.get("return_type")
+                steps.append(_step(
+                    sequence, operation=OPERATION_CREATE_METHOD,
+                    target_kind=TARGET_KIND_METHOD, target_name=nome_metodo,
+                    source_location=key + ":methods:" + nome_metodo,
+                    owner_name=name,
+                    owner_kind=TARGET_KIND_FUNCTION_BLOCK,
+                    # `language_guid` do MEMBRO e sempre None: a API tem default
+                    # `null` e nao ha rota para ler a linguagem do owner
+                    # (docs/api secao 5). O owner ja a declara.
+                    language_guid=None,
+                    # None = METODO SEM RETORNO. Representacao NATIVA da API --
+                    # `create_method` tem default null, `create_property` tem
+                    # default `int`. Nunca converter ausencia em BOOL ou VOID.
+                    return_type=retorno if isinstance(retorno, str) else None))
         elif family == "programs":
             steps.append(_step(
                 sequence, operation=OPERATION_CREATE_PROGRAM,
@@ -1021,6 +1103,21 @@ def _replace_target_kind(family: str, text_field: str) -> str:
     return ""
 
 
+def _method_replace_target_kind(text_field: str) -> str:
+    """Campo textual do MEMBRO -> `target_kind`, por if literal.
+
+    Separado de `_replace_target_kind` de propósito: aquele mapeia
+    (família, campo) e as famílias são as de topo. Membro não é família — ele
+    tem owner —, e forçá-lo naquela tabela exigiria uma família falsa
+    `"methods"` que não existe em `_ALL_FAMILIES` nem na spec.
+    """
+    if text_field == "declaration":
+        return TARGET_KIND_METHOD_DECLARATION
+    if text_field == "implementation":
+        return TARGET_KIND_METHOD_IMPLEMENTATION
+    raise ValueError("campo textual de METHOD desconhecido: %r" % (text_field,))
+
+
 def _emit_replace_steps(ordered: list[str], nodes: dict[str, tuple[str, str]],
                         objects: dict[str, dict], steps: list[dict],
                         create_sequence: dict[str, int],
@@ -1050,6 +1147,35 @@ def _emit_replace_steps(ordered: list[str], nodes: dict[str, tuple[str, str]],
                 planned_after_normalized_sha256=normalized,
                 created_by_sequence=create_sequence.get(key)))
             replaced.append(location)
+
+        # O texto dos MEMBROS vem logo depois do texto do owner, e nao numa
+        # varredura propria: manter os dois juntos preserva a propriedade que
+        # `docs/32` mediu -- todo objeto ja existe quando qualquer texto e
+        # escrito -- sem introduzir uma terceira fase que precisaria ser
+        # ordenada em relacao as outras duas.
+        for metodo in _methods_of(obj):
+            nome_metodo = metodo["name"]
+            for text_field in ("declaration", "implementation"):
+                text = metodo.get(text_field)
+                if not isinstance(text, str):
+                    continue
+                location = key + ":methods:" + nome_metodo + ":" + text_field
+                raw = sha256_of_text(text)
+                normalized = sha256_of_text(normalize_authoring_text(text))
+                text_hashes[location] = {"raw_sha256": raw,
+                                         "normalized_sha256": normalized}
+                steps.append(_step(
+                    len(steps) + 1, operation=OPERATION_REPLACE,
+                    target_kind=_method_replace_target_kind(text_field),
+                    target_name=nome_metodo, source_location=location,
+                    owner_name=name, owner_kind=TARGET_KIND_FUNCTION_BLOCK,
+                    expected_before_kind=EXPECTED_BEFORE_CREATED_IN_THIS_PLAN,
+                    expected_before_sha256=None,
+                    planned_after_sha256=raw,
+                    planned_after_normalized_sha256=normalized,
+                    created_by_sequence=create_sequence.get(
+                        key + ":methods:" + nome_metodo)))
+                replaced.append(location)
     return replaced
 
 
@@ -1174,7 +1300,98 @@ def _emit_modification_steps(modifications: list[dict], steps: list[dict],
     return alterados
 
 
-def _derive_allowlist(steps: list[dict]) -> tuple[list[str], list[dict]]:
+# A MATURIDADE NAO MORA MAIS AQUI.
+#
+# Ate 2026-08-03 cada entrada do `EXECUTOR_CONTRACT` carregava
+# `"field_proven": True` e `"evidence": "docs/46 (W6, run-033)"`. Enquanto a
+# arvore era so interna isso era um resumo do que estava medido do lado. Uma
+# vez PUBLICADO, virou outra coisa: o pacote promovia capacidades por literal
+# escrito no codigo, citando documentos que nao estao nele.
+#
+# E o mesmo fail-open que `docs/42` secao 4 fechou uma vez, num nivel acima.
+# La era "a API existe" passando por "a operacao funciona na cadeia"; aqui era
+# "o codigo diz que foi provado" passando por "ha evidencia de que foi".
+#
+# O contrato guarda propriedade TECNICA. A maturidade vem da attestation
+# carregada em runtime (`mastertool_bridge.attestation`), e sem ela nenhuma
+# capacidade passa de `discovered`.
+REQUIRED_MATURITY = "field_proven"
+
+
+def _capacidade_de(operation: str) -> str:
+    """A capacidade que uma operacao de plano exige.
+
+    Delega ao registro canonico (`planner/capabilities.py`). A derivacao ja foi
+    reimplementada de formas divergentes em pontos diferentes do codigo -- e
+    foi assim que `configure_task`, que nao tem `mastertool_operation`, ficou
+    de fora de uma delas.
+    """
+    from mastertool_bridge.planner.capabilities import capability_of
+
+    return capability_of(operation)
+
+
+def _maturidade_observada(capacidade: str, attestation: Any) -> str:
+    from mastertool_bridge.attestation.loader import (
+        MATURITY_FLOOR,
+        AttestationLoad,
+    )
+
+    if attestation is None:
+        return MATURITY_FLOOR
+    # TIPO ERRADO E RECUSA NOMEADA, e nao AttributeError.
+    #
+    # ACHADO na revisao adversarial: passar um `dict` cru aqui levantava
+    # `AttributeError`, que a rede de seguranca de `build_authoring_plan`
+    # convertia em "planner falhou de forma nao categorizada". Fail-CLOSED
+    # (nenhum plano saia), mas com o diagnostico errado: quem chamasse com o
+    # objeto errado procuraria um defeito do planner em vez do proprio erro.
+    if not isinstance(attestation, AttestationLoad):
+        return MATURITY_FLOOR
+    # EFETIVA, nunca declarada (achado RV1-1). Ler a declarada aqui faria uma
+    # attestation apontando para bundle que ninguem abriu promover igual a uma
+    # conferida -- e a evidencia deixaria de decidir qualquer coisa.
+    return attestation.effective_maturity_of(capacidade)
+
+
+def _motivo_da_lacuna(capacidade: str, attestation: Any) -> str:
+    from mastertool_bridge.attestation.loader import (
+        REASON_NOT_LOADED,
+        REASON_REFUSED,
+        AttestationLoad,
+    )
+
+    if attestation is None:
+        return REASON_NOT_LOADED
+    if not isinstance(attestation, AttestationLoad):
+        return REASON_REFUSED
+    return attestation.reason_for(capacidade) or REASON_NOT_LOADED
+
+
+def _capacidade_provada(operation: str, attestation: Any) -> bool:
+    """A operacao esta no grau que a execucao exige?
+
+    Sem attestation, NAO -- e essa e a mudanca de semantica do slice. O
+    chamador que quiser um plano executavel precisa carregar evidencia; nenhum
+    caminho aqui infere maturidade de comentario, de nome de run ou de
+    documento ausente do pacote.
+
+    Recebe o NOME da operacao, e nao o contrato, porque nem toda operacao tem
+    `mastertool_operation`: `configure_task` e o conjunto de quatro escritas de
+    propriedade e nao corresponde a uma chamada de metodo. Derivar a capacidade
+    so do contrato deixava essa de fora, e ela caia como nao provada mesmo com
+    attestation completa.
+    """
+    from mastertool_bridge.attestation.loader import MATURITY_SCALE
+
+    observada = _maturidade_observada(_capacidade_de(operation), attestation)
+    return MATURITY_SCALE.index(observada) >= MATURITY_SCALE.index(
+        REQUIRED_MATURITY)
+
+
+def _derive_allowlist(steps: list[dict],
+                      attestation: Any = None
+                      ) -> tuple[list[str], list[dict]]:
     """A allowlist NECESSÁRIA é DERIVADA dos passos, nunca declarada pelo autor
     da spec.
 
@@ -1205,7 +1422,7 @@ def _derive_allowlist(steps: list[dict]) -> tuple[list[str], list[dict]]:
         if step["operation"] == OPERATION_CONFIGURE_TASK:
             for escrita in (step.get("task_properties") or []):
                 required.add("set:" + escrita["property"])
-            if not contract.get("field_proven"):
+            if not _capacidade_provada(step["operation"], attestation):
                 unproven.add(step["operation"])
             continue
         if contract["cataloged"] and contract["mastertool_operation"]:
@@ -1215,7 +1432,7 @@ def _derive_allowlist(steps: list[dict]) -> tuple[list[str], list[dict]]:
             # Os dois ao mesmo tempo, de propósito — a allowlist descreve o que
             # a operação exigiria; a lacuna diz que ninguém provou que exigir
             # basta.
-            if not contract.get("field_proven"):
+            if not _capacidade_provada(step["operation"], attestation):
                 unproven.add(step["operation"])
         else:
             uncataloged.add(step["operation"])
@@ -1229,8 +1446,13 @@ def _derive_allowlist(steps: list[dict]) -> tuple[list[str], list[dict]]:
                 "por medição vem antes de executar este plano."),
         })
     for operation in sorted(unproven):
+        capacidade = _capacidade_de(operation)
         gaps.append({
             "kind": GAP_OPERATION_NOT_FIELD_PROVEN,
+            "capability": capacidade,
+            "required_maturity": REQUIRED_MATURITY,
+            "observed_maturity": _maturidade_observada(capacidade, attestation),
+            "reason": _motivo_da_lacuna(capacidade, attestation),
             "detail": (
                 f"a operação de plano {operation!r} tem API catalogada, mas "
                 "nunca foi exercida contra o produto real dentro de uma cadeia "
@@ -1326,7 +1548,8 @@ def _verification_limits(steps: list[dict], creation_order: list[str],
     return limits
 
 
-def build_authoring_plan(spec: Any, expected_template: Any = None) -> PlanResult:
+def build_authoring_plan(spec: Any, expected_template: Any = None,
+                         attestation: Any = None) -> PlanResult:
     """Constrói o plano de autoria a partir de `project_spec`.
 
     NUNCA levanta. Entrada degenerada (`None`, `[]`, `"x"`, `3`, `True`, dict
@@ -1335,7 +1558,7 @@ def build_authoring_plan(spec: Any, expected_template: Any = None) -> PlanResult
     chamador exige que a spec declare.
     """
     try:
-        return _build_authoring_plan(spec, expected_template)
+        return _build_authoring_plan(spec, expected_template, attestation)
     except Exception as exc:                                    # noqa: BLE001
         # Rede de segurança, não desculpa: qualquer caminho que chegue aqui é
         # defeito deste módulo. Ainda assim o chamador recebe um resultado
@@ -1347,7 +1570,8 @@ def build_authoring_plan(spec: Any, expected_template: Any = None) -> PlanResult
             plan=None)
 
 
-def _build_authoring_plan(spec: Any, expected_template: Any) -> PlanResult:
+def _build_authoring_plan(spec: Any, expected_template: Any,
+                          attestation: Any = None) -> PlanResult:
     validation = validate_project_spec(spec)
     problems: list[str] = list(validation.problems)
 
@@ -1501,7 +1725,7 @@ def _build_authoring_plan(spec: Any, expected_template: Any) -> PlanResult:
         target_kind=TARGET_KIND_PROJECT, target_name=PROJECT_TARGET,
         source_location=PROJECT_TARGET))
 
-    required_allowlist, gaps = _derive_allowlist(steps)
+    required_allowlist, gaps = _derive_allowlist(steps, attestation)
     gaps = gaps + _language_gaps(steps)
     gaps = gaps + _task_binding_gaps(
         steps, [name for name in task_names if name not in existing_tasks])
